@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "lsf"
+  site-url: "https://kaiguender.github.io/lsf"
+  description: "To be added."
+  repo-branch: main
+  repo-url: "https://github.com/kaiguender/lsf"
