@@ -25,4 +25,9 @@ d = { 'settings': { 'branch': 'main',
                                         'lsf.levelSetForecaster.LevelSetForecaster.getWeightsData': ( 'levelsetforecaster.html#levelsetforecaster.getweightsdata',
                                                                                                       'lsf/levelSetForecaster.py'),
                                         'lsf.levelSetForecaster.generateBins': ( 'levelsetforecaster.html#generatebins',
-                                                                                 'lsf/levelSetForecaster.py')}}}
+                                                                                 'lsf/levelSetForecaster.py')},
+            'lsf.wSAA': { 'lsf.wSAA.RandomForestWSAA': ('wsaa.html#randomforestwsaa', 'lsf/wSAA.py'),
+                          'lsf.wSAA.RandomForestWSAA.fit': ('wsaa.html#randomforestwsaa.fit', 'lsf/wSAA.py'),
+                          'lsf.wSAA.RandomForestWSAA.getWeightsData': ('wsaa.html#randomforestwsaa.getweightsdata', 'lsf/wSAA.py'),
+                          'lsf.wSAA.RandomForestWSAA.pointPredict': ('wsaa.html#randomforestwsaa.pointpredict', 'lsf/wSAA.py'),
+                          'lsf.wSAA.RandomForestWSAA.predict': ('wsaa.html#randomforestwsaa.predict', 'lsf/wSAA.py')}}}

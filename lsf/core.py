@@ -9,8 +9,6 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import numpy as np
 
-from sklearn.ensemble import RandomForestRegressor
-
 import ipdb
 
 # %% ../nbs/baseWeightsPredictor.ipynb 7
@@ -63,7 +61,7 @@ class BaseWeightsBasedPredictor(ABC):
             return quantilesDict
     
 
-# %% ../nbs/baseWeightsPredictor.ipynb 15
+# %% ../nbs/baseWeightsPredictor.ipynb 12
 def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeights', Y = None, scalingList = None, equalWeights = False):
     
     """
@@ -186,7 +184,7 @@ def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeight
         return distributionDataList
     
 
-# %% ../nbs/baseWeightsPredictor.ipynb 17
+# %% ../nbs/baseWeightsPredictor.ipynb 14
 def summarizeWeightsData(weightsPos, YWeightPos, equalWeights = False):
     
     if equalWeights:
