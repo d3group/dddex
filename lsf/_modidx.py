@@ -30,4 +30,8 @@ d = { 'settings': { 'branch': 'main',
                           'lsf.wSAA.RandomForestWSAA.fit': ('wsaa.html#randomforestwsaa.fit', 'lsf/wSAA.py'),
                           'lsf.wSAA.RandomForestWSAA.getWeightsData': ('wsaa.html#randomforestwsaa.getweightsdata', 'lsf/wSAA.py'),
                           'lsf.wSAA.RandomForestWSAA.pointPredict': ('wsaa.html#randomforestwsaa.pointpredict', 'lsf/wSAA.py'),
-                          'lsf.wSAA.RandomForestWSAA.predict': ('wsaa.html#randomforestwsaa.predict', 'lsf/wSAA.py')}}}
+                          'lsf.wSAA.RandomForestWSAA.predict': ('wsaa.html#randomforestwsaa.predict', 'lsf/wSAA.py'),
+                          'lsf.wSAA.SAA': ('wsaa.html#saa', 'lsf/wSAA.py'),
+                          'lsf.wSAA.SAA.__init__': ('wsaa.html#saa.__init__', 'lsf/wSAA.py'),
+                          'lsf.wSAA.SAA.fit': ('wsaa.html#saa.fit', 'lsf/wSAA.py'),
+                          'lsf.wSAA.SAA.getWeightsData': ('wsaa.html#saa.getweightsdata', 'lsf/wSAA.py')}}}

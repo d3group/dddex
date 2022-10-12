@@ -61,7 +61,7 @@ class BaseWeightsBasedPredictor(ABC):
             return quantilesDict
     
 
-# %% ../nbs/baseWeightsPredictor.ipynb 12
+# %% ../nbs/baseWeightsPredictor.ipynb 10
 def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeights', Y = None, scalingList = None, equalWeights = False):
     
     """
@@ -184,7 +184,7 @@ def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeight
         return distributionDataList
     
 
-# %% ../nbs/baseWeightsPredictor.ipynb 14
+# %% ../nbs/baseWeightsPredictor.ipynb 12
 def summarizeWeightsData(weightsPos, YWeightPos, equalWeights = False):
     
     if equalWeights:
