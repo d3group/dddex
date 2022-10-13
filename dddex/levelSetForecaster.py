@@ -13,17 +13,20 @@ from collections import Counter, defaultdict
 
 from joblib import Parallel, delayed, dump, load
 
+from typing import Union
+
 from .core import BaseWeightsBasedPredictor, restructureWeightsDataList
 
 # %% ../nbs/levelSetForecaster.ipynb 7
 class LevelSetForecaster(BaseWeightsBasedPredictor):
-    """`LevelSetForecaster` turns any estimator that has a .predict-method into  
+    """`LevelSetForecaster` turns any estimator that has a .predict-method into
     a condititional density estimator. The `LevelSetForecaster`-class is supposed
     to be applied to estimators that have been fit already."""
     
     def __init__(self, 
-                 estimator, 
-                 binSize = None):
+                 estimator, # (Fitted) object with a .predict-method.
+                 binSize: Union[int,None]=None # Size of the bins created during fitting.
+                 ):
         
         if not (hasattr(estimator, 'predict') and callable(estimator.predict)):
             raise ValueError("'estimator' has to have a 'predict'-method!")
@@ -52,7 +55,10 @@ class LevelSetForecaster(BaseWeightsBasedPredictor):
     
     #---
     
-    def fit(self, X, Y):
+    def fit(self, 
+            X:np.ndarray, # Feature matrix used by 'estimator' to predict 'Y'.
+            Y:np.ndarray, # 1-dimensional target variable corresponding to features 'X'.
+            ):
         
         YPredTrain = self.estimator.predict(X)
         
@@ -76,7 +82,11 @@ class LevelSetForecaster(BaseWeightsBasedPredictor):
         
     #---
         
-    def getWeightsData(self, X, outputType = 'onlyPositiveWeights', scalingList = None):
+    def getWeightsData(self, 
+                       X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
+                       outputType: Union['all','onlyPositiveWeights','summarized','cumulativeDistribution','cumulativeDistributionSummarized'], # specifies structure of output.
+                       scalingList: Union[list,None]=None, # List with same size as self.Y containing floats being multiplied with self.Y.
+                       ):
         
         binPerTrainPred = self.binPerTrainPred
         indicesPerBin = self.indicesPerBin
@@ -117,42 +127,10 @@ class LevelSetForecaster(BaseWeightsBasedPredictor):
     
 
 # %% ../nbs/levelSetForecaster.ipynb 9
-def generateBins(binSize, YPredTrain):
-    
-    """
-    Used to generate the bin-structure induced by the Level-Set-Forecaster algorithm for
-    ``neighborStrategy == 'bins'``.
-    Bins are created by starting at the lowest value of YPredTrain and then succesively 
-    adding the closest next prediction to the current bin until ``binSize``-many observations
-    have been allocated. Then the generation of a new bin is started in the same manner
-    until all values of YPredTrain have been assigned to exactly one bin.
-
-    Parameters
-    ----------
-    binSize : int
-        The size of each bin that is being created. Every bin is going to have this size
-        apart from the one containing the predictions with the highest values (see remarks)
-    YPredTrain : array
-        The predictions for the training observations.
-
-    Output
-    ----------
-    binPerPred : dict
-        A dictionary whose keys are given by all unique values of YPredTrain.
-        binPrePred[pred] returns the bin to which the current prediction 'pred'
-        belongs to.
-    indicesPerBin : dict
-        A dictionary whose keys are given by all bins (the keys begin at zero).
-        indicesPerBin[j] contains all indices of YPredTrain that belong to the same bin.
-
-    Notes
-    ----------
-    The binning strategy leads to the bin of the highest prediction values being smaller
-    than ``binSize``. As a convention, no bin is allowed to be smaller than ``binSize``.
-    For that reason, the bin of the highest value is joined with the next bin to it, 
-    so the final bin containing the highest prediction values is the only bin to contain
-    more observations than ``binSize``.
-    """
+def generateBins(binSize:int, # Size of the bins of values being grouped together.
+                 YPredTrain:np.ndarray, # 1-dimensional array of predicted values.
+                 ):
+    "Used to generate the bin-structure induced by the Level-Set-Forecaster algorithm"
     
     YPredTrainUnique = pd.Series(YPredTrain).unique()
     predIndicesSort = np.argsort(YPredTrainUnique)
@@ -212,8 +190,9 @@ def generateBins(binSize, YPredTrain):
 class LevelSetForecaster_kNN(BaseWeightsBasedPredictor):
     
     def __init__(self, 
-                 estimator, 
-                 binSize = 100):
+                 estimator, # Object with a .predict-method (fitted).
+                 binSize: Union[int,None]=None, # Size of the bins created during fitting.
+                 ):
         
         if not (hasattr(estimator, 'predict') and callable(estimator.predict)):
             raise ValueError("'estimator' has to have a 'predict'-method!")
@@ -239,7 +218,10 @@ class LevelSetForecaster_kNN(BaseWeightsBasedPredictor):
         
     #---
     
-    def fit(self, X, Y):
+    def fit(self, 
+            X:np.ndarray, # Feature matrix used by 'estimator' to predict 'Y'.
+            Y:np.ndarray, # 1-dimensional target variable corresponding to features 'X'.
+            ):
         
         YPredTrain = self.estimator.predict(X)
         YPredTrain_reshaped = np.reshape(YPredTrain, newshape = (len(YPredTrain), 1))
@@ -255,7 +237,11 @@ class LevelSetForecaster_kNN(BaseWeightsBasedPredictor):
         
     #---
         
-    def getWeightsData(self, X, outputType = 'onlyPositiveWeights', scalingList = None):
+    def getWeightsData(self, 
+                       X:np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
+                       outputType: Union['all','onlyPositiveWeights','summarized','cumulativeDistribution','cumulativeDistributionSummarized'], # specifies structure of output.
+                       scalingList: Union[list,None]=None, # List with same size as self.Y containing floats being multiplied with self.Y.
+                       ):
         
         nn = self.nearestNeighborsOnPreds
         
@@ -304,15 +290,16 @@ class LevelSetForecaster_kNN(BaseWeightsBasedPredictor):
 class binSizeCV:
 
     def __init__(self,
-                 estimator,
-                 cv,
-                 LSF_type = None,
-                 binSizeGrid = np.array([4, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 
-                                         100, 125, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900,
-                                         1000, 1250, 1500, 1750, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]),                 
-                 probs = np.array([i / 100 for i in range(1, 100, 1)]),
-                 refitPerProb = False,
-                 n_jobs = None):
+                 estimator, # Object with a .predict-method (fitted).
+                 cv, # Specifies cross-validation-splits. Identical to 'cv' used for cross-validation in sklearn.
+                 LSF_type: Union['LSF','LSF_kNN',None]=None, # Specifies which LSF-Object we work with during cross-validation.
+                 binSizeGrid: Union[list,np.ndarray]=np.array([4, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 
+                                                 100, 125, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900,
+                                                 1000, 1250, 1500, 1750, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]), # binSize (int) values being evaluated.                
+                 probs: Union[list,np.ndarray]=np.array([i / 100 for i in range(1, 100, 1)]), # list or array of floats between 0 and 1. p-quantiles being predicted to evaluate performance of LSF.
+                 refitPerProb: bool=False, # If True, for each p-quantile a fitted LSF with best binSize to predict it is returned. Otherwise only one LSF is returned that is best over all probs.
+                 n_jobs: Union[int,None]=None, # number of folds being computed in parallel.
+                 ):
         
         # CHECKS
         
