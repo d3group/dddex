@@ -1,0 +1,7 @@
+website:
+  sidebar:
+    contents:
+      - index.ipynb
+      - baseWeightsPredictor.ipynb
+      - levelSetForecaster.ipynb
+      - wSAA.ipynb

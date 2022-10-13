@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "dddex"
+  site-url: "https://kaiguender.github.io/dddex"
+  description: "To be added."
+  repo-branch: main
+  repo-url: "https://github.com/kaiguender/dddex"

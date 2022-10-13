@@ -17,6 +17,9 @@ from .core import BaseWeightsBasedPredictor, restructureWeightsDataList
 
 # %% ../nbs/levelSetForecaster.ipynb 7
 class LevelSetForecaster(BaseWeightsBasedPredictor):
+    """`LevelSetForecaster` turns any estimator that has a .predict-method into  
+    a condititional density estimator. The `LevelSetForecaster`-class is supposed
+    to be applied to estimators that have been fit already."""
     
     def __init__(self, 
                  estimator, 
@@ -41,7 +44,13 @@ class LevelSetForecaster(BaseWeightsBasedPredictor):
         self.indicesPerBin = None
         self.nearestNeighborsOnPreds = None
         
-    #---        
+    #---
+    
+    def __str__(self):
+        return f"LevelSetForecaster(estimator = {self.estimator}, binSize = {self.binSize})"
+    __repr__ = __str__
+    
+    #---
     
     def fit(self, X, Y):
         
