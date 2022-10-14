@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 
-from .core import BaseWeightsBasedPredictor, restructureWeightsDataList
+from .baseWeightsPredictor import BaseWeightsBasedPredictor, restructureWeightsDataList
 
 # %% auto 0
 __all__ = ['RandomForestWSAA', 'SAA']
@@ -94,10 +94,16 @@ def predict(self: RandomForestWSAA,
 
 # %% ../nbs/02_wSAA.ipynb 15
 class SAA(BaseWeightsBasedPredictor):
+    """SAA is a featureless approach that assumes the density of the target variable is given
+    by assigning equal probability to each historical observation of said target variable."""
     
     def __init__(self):
         
         self.Y = None
+        
+    def __str__(self):
+        return "SAA()"
+    __repr__ = __str__     
     
 
 # %% ../nbs/02_wSAA.ipynb 17

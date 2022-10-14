@@ -22,15 +22,15 @@ class BaseWeightsBasedPredictor(ABC):
     
     #---
     
-    @abstractmethod
-    def fit(self, X, Y):
-        """Fit weights-based predictor on given training data"""
+#     @abstractmethod
+#     def fit(self, X, Y):
+#         """Fit weights-based predictor on given training data"""
     
-    #---
+#     #---
     
-    @abstractmethod
-    def getWeightsData(self, X, scalingList = None):
-        """Compute weights of feature array X"""
+#     @abstractmethod
+#     def getWeightsData(self, X, scalingList = None):
+#         """Compute weights of feature array X"""
     
 
 # %% ../nbs/00_baseWeightsPredictor.ipynb 9

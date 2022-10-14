@@ -12,7 +12,7 @@ from sklearn.neighbors import NearestNeighbors
 from collections import Counter, defaultdict
 from joblib import Parallel, delayed, dump, load
 
-from .baseWeightsPredictor import BaseWeightsBasedPredictor, restructureWeightsDataList
+from .core import BaseWeightsBasedPredictor, restructureWeightsDataList
 
 # %% auto 0
 __all__ = ['LevelSetForecaster', 'generateBins', 'LevelSetForecaster_kNN', 'binSizeCV', 'scoresForFold', 'getCoefPres']
@@ -56,7 +56,7 @@ class LevelSetForecaster(BaseWeightsBasedPredictor):
 
 # %% ../nbs/01_levelSetForecaster.ipynb 9
 @patch
-def fit(self: LevelSetForecaster, 
+def fit(self:LevelSetForecaster, 
         X: np.ndarray, # Feature matrix used by 'estimator' to predict 'Y'.
         Y: np.ndarray, # 1-dimensional target variable corresponding to the features 'X'.
         ):
