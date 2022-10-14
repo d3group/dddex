@@ -9,7 +9,6 @@ from fastcore.utils import *
 import pandas as pd
 import numpy as np
 from sklearn.neighbors import NearestNeighbors 
-from collections import Counter, defaultdict
 from joblib import Parallel, delayed, dump, load
 
 from .baseWeightsPredictor import BaseWeightsBasedPredictor, restructureWeightsDataList
@@ -147,7 +146,7 @@ def generateBins(binSize: int, # Size of the bins of values being grouped togeth
 # %% ../nbs/01_levelSetForecaster.ipynb 13
 @patch
 def getWeightsData(self: LevelSetForecaster, 
-                   X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
+                   X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
                    outputType: 'all' | # Specifies structure of output.
                                'onlyPositiveWeights' | 
                                'summarized' | 
@@ -250,7 +249,7 @@ def fit(self:LevelSetForecaster_kNN,
 # %% ../nbs/01_levelSetForecaster.ipynb 20
 @patch
 def getWeightsData(self: LevelSetForecaster_kNN, 
-                   X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
+                   X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
                    outputType: 'all' | # Specifies structure of output.
                                'onlyPositiveWeights' | 
                                'summarized' | 

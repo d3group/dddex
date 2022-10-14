@@ -17,27 +17,19 @@ __all__ = ['RandomForestWSAA', 'SAA']
 
 # %% ../nbs/02_wSAA.ipynb 7
 class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedPredictor):
-        
+    
     def fit(self, X, Y):
 
         super(RandomForestRegressor, self).fit(X = X, y = Y)
         
         self.Y = Y
         self.leafIndicesTrain = self.apply(X)
-    
-    #---
-    
-    def pointPredict(self, X):
-        
-        preds = super(RandomForestRegressor, self).predict(X)
-        
-        return preds
         
 
 # %% ../nbs/02_wSAA.ipynb 10
 @patch
 def getWeightsData(self: RandomForestWSAA, 
-                   X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
+                   X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
                    outputType: 'all' | # Specifies structure of output.
                                'onlyPositiveWeights' | 
                                'summarized' | 
@@ -75,22 +67,6 @@ def getWeightsData(self: RandomForestWSAA,
                                                  equalWeights = False)
 
     return weightsDataList
-
-# %% ../nbs/02_wSAA.ipynb 12
-@patch
-def predict(self: RandomForestWSAA, 
-            X: np.ndarray, # Feature matrix of samples for which an estimation of conditional quantiles is computed.
-            probs: list | np.ndarray = [0.1, 0.5, 0.9], # Probabilities for which the estimated conditional p-quantiles are computed.
-            outputAsDf: bool = False, # Output is either a dataframe with 'probs' as cols or a dict with 'probs' as keys.
-            scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
-            ):
-
-    quantileRes = super(BaseWeightsBasedPredictor, self).predict(X = X,
-                                                                 probs = probs,
-                                                                 outputAsDf = outputAsDf,
-                                                                 scalingList = scalingList)
-
-    return quantileRes
 
 # %% ../nbs/02_wSAA.ipynb 15
 class SAA(BaseWeightsBasedPredictor):
