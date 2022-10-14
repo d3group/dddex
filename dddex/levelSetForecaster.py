@@ -84,56 +84,7 @@ def fit(self:LevelSetForecaster,
     self.indicesPerBin = indicesPerBin
     self.nearestNeighborsOnPreds = nn
 
-# %% ../nbs/levelSetForecaster.ipynb 11
-@patch
-def getWeightsData(self: LevelSetForecaster, 
-                   X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
-                   outputType: 'all' | # Specifies structure of output.
-                               'onlyPositiveWeights' | 
-                               'summarized' | 
-                               'cumulativeDistribution' | 
-                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
-                   ):
-        
-    binPerTrainPred = self.binPerTrainPred
-    indicesPerBin = self.indicesPerBin
-    nearestNeighborsOnPreds = self.nearestNeighborsOnPreds
-
-    #---
-
-    YPred = self.estimator.predict(X)   
-    YPred_reshaped = np.reshape(YPred, newshape = (len(YPred), 1))
-
-    nearestPredIndex = nearestNeighborsOnPreds.kneighbors(X = YPred_reshaped, 
-                                                          n_neighbors = 1, 
-                                                          return_distance = False).ravel()
-
-    nearestPredNeighbor = self.YPredTrain[nearestPredIndex]
-
-    neighborsList = [indicesPerBin[binPerTrainPred[nearestPredNeighbor[i]]] for i in range(len(YPred))]
-
-    #---
-
-    # Checks        
-    for i in range(len(neighborsList)):
-        if len(neighborsList[i]) < self.binSize:
-            ipdb.set_trace()
-
-    #---
-
-    # weightsDataList is a list whose elements correspond to one test prediction each. 
-    weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
-
-    weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                 outputType = outputType, 
-                                                 Y = self.Y,
-                                                 scalingList = scalingList,
-                                                 equalWeights = True)
-
-    return weightsDataList
-
-# %% ../nbs/levelSetForecaster.ipynb 14
+# %% ../nbs/levelSetForecaster.ipynb 12
 def generateBins(binSize: int, # Size of the bins of values being grouped together.
                  YPredTrain: np.ndarray, # 1-dimensional array of predicted values.
                  ):
@@ -193,6 +144,55 @@ def generateBins(binSize: int, # Size of the bins of values being grouped togeth
     
     return binPerPred, indicesPerBin
 
+# %% ../nbs/levelSetForecaster.ipynb 13
+@patch
+def getWeightsData(self: LevelSetForecaster, 
+                   X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
+                   outputType: 'all' | # Specifies structure of output.
+                               'onlyPositiveWeights' | 
+                               'summarized' | 
+                               'cumulativeDistribution' | 
+                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
+                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
+                   ):
+        
+    binPerTrainPred = self.binPerTrainPred
+    indicesPerBin = self.indicesPerBin
+    nearestNeighborsOnPreds = self.nearestNeighborsOnPreds
+
+    #---
+
+    YPred = self.estimator.predict(X)   
+    YPred_reshaped = np.reshape(YPred, newshape = (len(YPred), 1))
+
+    nearestPredIndex = nearestNeighborsOnPreds.kneighbors(X = YPred_reshaped, 
+                                                          n_neighbors = 1, 
+                                                          return_distance = False).ravel()
+
+    nearestPredNeighbor = self.YPredTrain[nearestPredIndex]
+
+    neighborsList = [indicesPerBin[binPerTrainPred[nearestPredNeighbor[i]]] for i in range(len(YPred))]
+
+    #---
+
+    # Checks        
+    for i in range(len(neighborsList)):
+        if len(neighborsList[i]) < self.binSize:
+            ipdb.set_trace()
+
+    #---
+
+    # weightsDataList is a list whose elements correspond to one test prediction each. 
+    weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+
+    weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                 outputType = outputType, 
+                                                 Y = self.Y,
+                                                 scalingList = scalingList,
+                                                 equalWeights = True)
+
+    return weightsDataList
+
 # %% ../nbs/levelSetForecaster.ipynb 16
 class LevelSetForecaster_kNN(BaseWeightsBasedPredictor):
     
@@ -220,87 +220,88 @@ class LevelSetForecaster_kNN(BaseWeightsBasedPredictor):
         
     #---
     
-    def setBinSize(self, binSize):
-        self.binSize = binSize
-        
+    def __str__(self):
+        return f"LevelSetForecaster_kNN(estimator = {self.estimator}, binSize = {self.binSize})"
+    __repr__ = __str__   
+      
+
+# %% ../nbs/levelSetForecaster.ipynb 17
+@patch 
+def fit(self:LevelSetForecaster_kNN, 
+        X: np.ndarray, # Feature matrix used by 'estimator' to predict 'Y'.
+        Y: np.ndarray, # Target variable corresponding to features 'X'.
+        ):
+
+    if self.binSize > Y.shape[0]:
+        raise ValueError("'binSize' mustn't be bigger than the size of 'Y'!")
+
+    YPredTrain = self.estimator.predict(X)
+    YPredTrain_reshaped = np.reshape(YPredTrain, newshape = (len(YPredTrain), 1))
+
+    nn = NearestNeighbors(algorithm = 'kd_tree')
+    nn.fit(X = YPredTrain_reshaped)
+
     #---
-    
-    def fit(self, 
-            X: np.ndarray, # Feature matrix used by 'estimator' to predict 'Y'.
-            Y: np.ndarray, # Target variable corresponding to features 'X'.
-            ):
-        
-        if self.binSize > Y.shape[0]:
-            raise ValueError("'binSize' mustn't be bigger than the size of 'Y'!")
-        
-        YPredTrain = self.estimator.predict(X)
-        YPredTrain_reshaped = np.reshape(YPredTrain, newshape = (len(YPredTrain), 1))
-        
-        nn = NearestNeighbors(algorithm = 'kd_tree')
-        nn.fit(X = YPredTrain_reshaped)
-        
-        #---
-        
-        self.Y = Y
-        self.YPredTrain = YPredTrain
-        self.nearestNeighborsOnPreds = nn
-        
+
+    self.Y = Y
+    self.YPredTrain = YPredTrain
+    self.nearestNeighborsOnPreds = nn
+
+# %% ../nbs/levelSetForecaster.ipynb 19
+@patch
+def getWeightsData(self: LevelSetForecaster_kNN, 
+                   X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
+                   outputType: 'all' | # Specifies structure of output.
+                               'onlyPositiveWeights' | 
+                               'summarized' | 
+                               'cumulativeDistribution' | 
+                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
+                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
+                   ):
+
+    nn = self.nearestNeighborsOnPreds
+
     #---
-        
-    def getWeightsData(self, 
-                       X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
-                       outputType: 'all' | # Specifies structure of output.
-                                   'onlyPositiveWeights' | 
-                                   'summarized' | 
-                                   'cumulativeDistribution' | 
-                                   'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                       scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
-                       ):
-        
-        nn = self.nearestNeighborsOnPreds
-        
-        #---
-        
-        YPred = self.estimator.predict(X)   
-        YPred_reshaped = np.reshape(YPred, newshape = (len(YPred), 1))
-        
-        distancesDf, neighborsMatrix = nn.kneighbors(X = YPred_reshaped, 
-                                                     n_neighbors = self.binSize + 1)
-        
-        #---
 
-        neighborsList = list(neighborsMatrix[:, 0:self.binSize])
-        distanceCheck = np.where(distancesDf[:, self.binSize - 1] == distancesDf[:, self.binSize])
-        indicesToMod = distanceCheck[0]
+    YPred = self.estimator.predict(X)   
+    YPred_reshaped = np.reshape(YPred, newshape = (len(YPred), 1))
 
-        for index in indicesToMod:
-            distanceExtremePoint = np.absolute(YPred[index] - self.YPredTrain[neighborsMatrix[index, self.binSize-1]])
-            
-            neighborsByRadius = nn.radius_neighbors(X = YPred_reshaped[index:index + 1], 
-                                                    radius = distanceExtremePoint, return_distance = False)[0]
-            neighborsList[index] = neighborsByRadius
+    distancesDf, neighborsMatrix = nn.kneighbors(X = YPred_reshaped, 
+                                                 n_neighbors = self.binSize + 1)
 
-        #---
-        
-        for i in range(len(neighborsList)):
-            if len(neighborsList[i]) < self.binSize:
-                ipdb.set_trace()
+    #---
 
-        #---
-                        
-        # weightsDataList is a list whose elements correspond to one test prediction each. 
-        weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+    neighborsList = list(neighborsMatrix[:, 0:self.binSize])
+    distanceCheck = np.where(distancesDf[:, self.binSize - 1] == distancesDf[:, self.binSize])
+    indicesToMod = distanceCheck[0]
 
-        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                     outputType = outputType, 
-                                                     Y = self.Y,
-                                                     scalingList = scalingList,
-                                                     equalWeights = True)
+    for index in indicesToMod:
+        distanceExtremePoint = np.absolute(YPred[index] - self.YPredTrain[neighborsMatrix[index, self.binSize-1]])
 
-        return weightsDataList
-    
+        neighborsByRadius = nn.radius_neighbors(X = YPred_reshaped[index:index + 1], 
+                                                radius = distanceExtremePoint, return_distance = False)[0]
+        neighborsList[index] = neighborsByRadius
 
-# %% ../nbs/levelSetForecaster.ipynb 18
+    #---
+
+    for i in range(len(neighborsList)):
+        if len(neighborsList[i]) < self.binSize:
+            ipdb.set_trace()
+
+    #---
+
+    # weightsDataList is a list whose elements correspond to one test prediction each. 
+    weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+
+    weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                 outputType = outputType, 
+                                                 Y = self.Y,
+                                                 scalingList = scalingList,
+                                                 equalWeights = True)
+
+    return weightsDataList
+
+# %% ../nbs/levelSetForecaster.ipynb 22
 class binSizeCV:
 
     def __init__(self,
@@ -347,73 +348,76 @@ class binSizeCV:
         self.cv_results = None
         self.cv_results_raw = None
         
+
+# %% ../nbs/levelSetForecaster.ipynb 24
+@patch
+def fit(self: binSizeCV, 
+        X, 
+        Y):
+    
+    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(scoresForFold)(cvFold = cvFold,
+                                                                          binSizeGrid = self.binSizeGrid,
+                                                                          probs = self.probs,
+                                                                          estimator = self.estimator,
+                                                                          LSF_type = self.LSF_type,
+                                                                          Y = Y,
+                                                                          X = X) for cvFold in cvFolds)    
+
+    self.cv_results_raw = scoresPerFold
+
     #---
 
-    def fit(self, X, Y):
-    
-        scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(scoresForFold)(cvFold = cvFold,
-                                                                              binSizeGrid = self.binSizeGrid,
-                                                                              probs = self.probs,
-                                                                              estimator = self.estimator,
-                                                                              LSF_type = self.LSF_type,
-                                                                              Y = Y,
-                                                                              X = X) for cvFold in cvFolds)    
-        
-        self.cv_results_raw = scoresPerFold
-        
-        #---
+    nvCostsMatrix = scoresPerFold[0]
 
-        nvCostsMatrix = scoresPerFold[0]
+    for i in range(1, len(scoresPerFold)):
+        nvCostsMatrix = nvCostsMatrix + scoresPerFold[i]
 
-        for i in range(1, len(scoresPerFold)):
-            nvCostsMatrix = nvCostsMatrix + scoresPerFold[i]
+    nvCostsMatrix = nvCostsMatrix / len(cvFolds)
 
-        nvCostsMatrix = nvCostsMatrix / len(cvFolds)
-        
-        self.cv_results = nvCostsMatrix
-        
-        #---
-        
-        meanCostsDf = nvCostsMatrix.mean(axis = 1)
-        binSizeBestOverall = meanCostsDf.index[np.argmax(meanCostsDf)]
-        self.best_binSize = binSizeBestOverall
-        
-        binSizeBestPerProb = nvCostsMatrix.idxmax(axis = 0)
-        self.best_binSize_perProb = binSizeBestPerProb
-        
-        #---
-        
-        if self.refitPerProb:
-            
-            LSFDict = dict()
-            for binSize in binSizeBestPerProb.unique():
-                
-                if self.LSF_type == 'LSF':
-                    LSF = LevelSetForecaster(estimator = self.estimator, 
-                                             binSize = binSize)
-                else:
-                    LSF = LevelSetForecaster_kNN(estimator = self.estimator, 
-                                                 binSize = binSize)
-                
-                LSF.fit(X = X, Y = Y)
-                LSFDict[binSize] = LSF
-            
-            self.best_estimatorLSF = {prob: LSFDict[binSizeBestPerProb.loc[prob]] 
-                                      for prob in binSizeBestPerProb.index}
-        
-        else:
+    self.cv_results = nvCostsMatrix
+
+    #---
+
+    meanCostsDf = nvCostsMatrix.mean(axis = 1)
+    binSizeBestOverall = meanCostsDf.index[np.argmax(meanCostsDf)]
+    self.best_binSize = binSizeBestOverall
+
+    binSizeBestPerProb = nvCostsMatrix.idxmax(axis = 0)
+    self.best_binSize_perProb = binSizeBestPerProb
+
+    #---
+
+    if self.refitPerProb:
+
+        LSFDict = dict()
+        for binSize in binSizeBestPerProb.unique():
+
             if self.LSF_type == 'LSF':
                 LSF = LevelSetForecaster(estimator = self.estimator, 
-                                         binSize = binSizeBestOverall)
+                                         binSize = binSize)
             else:
                 LSF = LevelSetForecaster_kNN(estimator = self.estimator, 
-                                             binSize = binSizeBestOverall)
-            
-            LSF.fit(X = X, Y = Y)
-            
-            self.best_estimatorLSF = LSF
+                                             binSize = binSize)
 
-# %% ../nbs/levelSetForecaster.ipynb 20
+            LSF.fit(X = X, Y = Y)
+            LSFDict[binSize] = LSF
+
+        self.best_estimatorLSF = {prob: LSFDict[binSizeBestPerProb.loc[prob]] 
+                                  for prob in binSizeBestPerProb.index}
+
+    else:
+        if self.LSF_type == 'LSF':
+            LSF = LevelSetForecaster(estimator = self.estimator, 
+                                     binSize = binSizeBestOverall)
+        else:
+            LSF = LevelSetForecaster_kNN(estimator = self.estimator, 
+                                         binSize = binSizeBestOverall)
+
+        LSF.fit(X = X, Y = Y)
+
+        self.best_estimatorLSF = LSF
+
+# %% ../nbs/levelSetForecaster.ipynb 27
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
@@ -482,7 +486,7 @@ def scoresForFold(cvFold, binSizeGrid, probs, estimator, LSF_type, Y, X):
     
     return coefPresDf
 
-# %% ../nbs/levelSetForecaster.ipynb 22
+# %% ../nbs/levelSetForecaster.ipynb 29
 def getCoefPres(decisions, decisionsSAA, YTest, prob):
 
     # Newsvendor Costs of our model
