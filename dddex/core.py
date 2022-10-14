@@ -4,6 +4,7 @@
 from __future__ import annotations
 from fastcore.docments import *
 from fastcore.test import *
+from fastcore.utils import *
 
 from abc import ABC, abstractmethod
 import pandas as pd
@@ -31,43 +32,43 @@ class BaseWeightsBasedPredictor(ABC):
     def getWeightsData(self, X, scalingList = None):
         """Compute weights of feature array X"""
     
-    #---
-    
-    def predict(self, 
-                X: np.ndarray, # Feature matrix of samples for which an estimation of conditional quantiles is computed.
-                probs: list | np.ndarray = [0.1, 0.5, 0.9], # Probabilities for which the estimated conditional p-quantiles are computed.
-                outputAsDf: bool = False, # Output is either a dataframe with 'probs' as cols or a dict with 'probs' as keys.
-                scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
-               ):
-        
-        distributionDataList = self.getWeightsData(X = X,
-                                                   outputType = 'cumulativeDistribution',
-                                                   scalingList = scalingList)
-        
-        quantilesDict = {prob: [] for prob in probs}
-        
-        for probsDistributionFunction, YDistributionFunction in distributionDataList:
-        
-            for prob in probs:
-                quantileIndex = np.where(probsDistributionFunction >= prob)[0][0]
-                quantile = YDistributionFunction[quantileIndex]
-                quantilesDict[prob].append(quantile)
-        
-        quantilesDf = pd.DataFrame(quantilesDict)
-        
-        # Just done to make the dictionary contain arrays rather than lists of the quantiles.
-        quantilesDict = {prob: np.array(quantiles) for prob, quantiles in quantilesDict.items()}
-        
-        #---
-        
-        if outputAsDf:
-            return quantilesDf
-        
-        else:
-            return quantilesDict
-    
 
-# %% ../nbs/baseWeightsPredictor.ipynb 10
+# %% ../nbs/baseWeightsPredictor.ipynb 9
+@patch
+def predict(self: BaseWeightsBasedPredictor, 
+            X: np.ndarray, # Feature matrix of samples for which conditional quantiles are computed.
+            probs: list | np.ndarray = [0.1, 0.5, 0.9], # Probabilities for which the estimated conditional p-quantiles are computed.
+            outputAsDf: bool = False, # Output is either a dataframe with 'probs' as cols or a dict with 'probs' as keys.
+            scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
+            ):
+
+    distributionDataList = self.getWeightsData(X = X,
+                                               outputType = 'cumulativeDistribution',
+                                               scalingList = scalingList)
+
+    quantilesDict = {prob: [] for prob in probs}
+
+    for probsDistributionFunction, YDistributionFunction in distributionDataList:
+
+        for prob in probs:
+            quantileIndex = np.where(probsDistributionFunction >= prob)[0][0]
+            quantile = YDistributionFunction[quantileIndex]
+            quantilesDict[prob].append(quantile)
+
+    quantilesDf = pd.DataFrame(quantilesDict)
+
+    # Just done to make the dictionary contain arrays rather than lists of the quantiles.
+    quantilesDict = {prob: np.array(quantiles) for prob, quantiles in quantilesDict.items()}
+
+    #---
+
+    if outputAsDf:
+        return quantilesDf
+
+    else:
+        return quantilesDict
+
+# %% ../nbs/baseWeightsPredictor.ipynb 13
 def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeights', Y = None, scalingList = None, equalWeights = False):
     
     """
@@ -190,7 +191,7 @@ def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeight
         return distributionDataList
     
 
-# %% ../nbs/baseWeightsPredictor.ipynb 12
+# %% ../nbs/baseWeightsPredictor.ipynb 15
 def summarizeWeightsData(weightsPos, YWeightPos, equalWeights = False):
     
     if equalWeights:
