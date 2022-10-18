@@ -10,19 +10,19 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 
-from .baseWeightsPredictor import BaseWeightsBasedPredictor, restructureWeightsDataList
+from .basePredictor import BasePredictor, restructureWeightsDataList
 
 # %% auto 0
 __all__ = ['RandomForestWSAA', 'SAA']
 
 # %% ../nbs/02_wSAA.ipynb 7
-class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedPredictor):
+class RandomForestWSAA(RandomForestRegressor, BasePredictor):
     
-    def fit(self, X, Y):
+    def fit(self, X, y):
 
-        super(RandomForestRegressor, self).fit(X = X, y = Y)
+        super(RandomForestRegressor, self).fit(X = X, y = y)
         
-        self.Y = Y
+        self.y = y
         self.leafIndicesTrain = self.apply(X)
         
 
@@ -35,7 +35,7 @@ def getWeightsData(self: RandomForestWSAA,
                                'summarized' | 
                                'cumulativeDistribution' | 
                                'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
+                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
                    ):
 
     leafIndicesDf = self.apply(X)
@@ -62,20 +62,20 @@ def getWeightsData(self: RandomForestWSAA,
 
     weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                  outputType = outputType, 
-                                                 Y = self.Y, 
+                                                 y = self.y, 
                                                  scalingList = scalingList,
                                                  equalWeights = False)
 
     return weightsDataList
 
 # %% ../nbs/02_wSAA.ipynb 15
-class SAA(BaseWeightsBasedPredictor):
+class SAA(BasePredictor):
     """SAA is a featureless approach that assumes the density of the target variable is given
     by assigning equal probability to each historical observation of said target variable."""
     
     def __init__(self):
         
-        self.Y = None
+        self.y = None
         
     def __str__(self):
         return "SAA()"
@@ -85,9 +85,9 @@ class SAA(BaseWeightsBasedPredictor):
 # %% ../nbs/02_wSAA.ipynb 17
 @patch
 def fit(self: SAA, 
-        Y: np.ndarray, # Target values which form the estimated density function based on the SAA algorithm.
+        y: np.ndarray, # Target values which form the estimated density function based on the SAA algorithm.
         ):
-    self.Y = Y
+    self.y = y
 
 # %% ../nbs/02_wSAA.ipynb 19
 @patch
@@ -98,20 +98,20 @@ def getWeightsData(self: SAA,
                                'summarized' | 
                                'cumulativeDistribution' | 
                                'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
+                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
                    ):
 
     if X is None:
-        neighborsList = [np.arange(len(self.Y))]
+        neighborsList = [np.arange(len(self.y))]
     else:
-        neighborsList = [np.arange(len(self.Y)) for i in range(X.shape[0])]
+        neighborsList = [np.arange(len(self.y)) for i in range(X.shape[0])]
 
     # weightsDataList is a list whose elements correspond to one test prediction each. 
     weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
 
     weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                  outputType = outputType, 
-                                                 Y = self.Y,
+                                                 y = self.y,
                                                  scalingList = scalingList,
                                                  equalWeights = True)
 
