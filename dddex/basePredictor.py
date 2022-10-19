@@ -28,19 +28,30 @@ class BasePredictor(ABC):
     def fit(self, X, y):
         """Fit weights-based predictor on training samples"""
         
-    def getWeightsData(self, X):
+    def getWeights(self, X):
         """Compute weights for every sample specified by feature matrix 'X'"""
 
-    def predictQuantiles(self: BasePredictor, 
-                         X: np.ndarray, # Feature matrix of samples for which conditional quantiles are computed.
-                         probs: list | np.ndarray = [0.1, 0.5, 0.9], # Probabilities for which the estimated conditional p-quantiles are computed.
-                         outputAsDf: bool = False, # Output is either a dataframe with 'probs' as cols or a dict with 'probs' as keys.
-                         scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
-                         ):
+    # def predictQuantiles(self: BasePredictor, 
+    #                      X: np.ndarray, # Feature matrix of samples for which conditional quantiles are computed.
+    #                      probs: list | np.ndarray = [0.1, 0.5, 0.9], # Probabilities for which the estimated conditional p-quantiles are computed.
+    #                      outputAsDf: bool = False, # Output is either a dataframe with 'probs' as cols or a dict with 'probs' as keys.
+    #                      scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
+    #                      ):
+    
+    def predictQ(self, 
+                 X,
+                 probs = [0.1, 0.5, 0.9], 
+                 outputAsDf = False, 
+                 scalingList = None, 
+                 ):
+        
+       
+        
+        
 
-        distributionDataList = self.getWeightsData(X = X,
-                                                   outputType = 'cumulativeDistribution',
-                                                   scalingList = scalingList)
+        distributionDataList = self.getWeights(X = X,
+                                               outputType = 'cumulativeDistribution',
+                                               scalingList = scalingList)
 
         quantilesDict = {prob: [] for prob in probs}
 
@@ -68,42 +79,7 @@ class BasePredictor(ABC):
 # %% ../nbs/00_basePredictor.ipynb 12
 def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeights', y= None, scalingList = None, equalWeights = False):
     
-    """
-    Helper function. Creates weights-output by specifying considered
-    neighbors of training observations for every test observation of interest.
-
-    Parameters
-    ----------
-    neighborsList : {list}
-        The i-th list-entry is supposed to correspond to the i-th test observation. 
-        Every list-entry should be a array containing the indices of training observations
-        which were selected as the neighbors of the considered test observation based on
-        the selected Level-Set-Forecaster algorithm.     
-    outputType : {"summarized", "onlyPositiveWeights", "all"}, default="onlyPositiveWeights"
-        Specifies the structure of the output. 
-        - If "all", then the weights are outputted as an array that is exactly as long as 
-          the number of training observations. Consequently, also weights equal to zero are
-          being computed. 
-          NOTE: This can be take up lots of RAM for large datasets with
-          > 10^6 observations.
-        - If "onlyPositiveWeights", then weights equal to zero are truncated. In order to be 
-          able to identify to which training observation each weight belongs, a tuple is
-          outputted whose first entry are the weights and the second one are the corresponding
-          training indices. 
-        - If "summarized", then additionally to "onlyPositiveWeights", weights referencing to the
-          same y-value are condensed to one single weight. In this case, the second entry of the
-          outputted tuple contains the y-values to which each weight corresponds. 
-          NOTE: Summarizing the weights can be very computationally burdensome if roughly the considered
-          dataset has more than 10^6 observations and if ``binSize`` > 10^4.
-        - If "cumulativeDistributionSummarized", then additionally to "summarized", the cumulative sum of the
-          weights is computed, which can be interpreted as the empirical cumulative distribution
-          function given the feature vector at hand.
-          NOTE: This output type requires summarizing the weights, which can be very computationally 
-          burdensome if roughly the considered dataset has more than 10^6 observations and if 
-          ``binSize`` > 10^4.
-    y: array, default=None
-        The target values of the training observations. Only needed when ``outputType`` is given as 
-        "all" or "summarized"."""
+    
     
     if outputType == 'all':
         

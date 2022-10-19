@@ -28,15 +28,15 @@ class RandomForestWSAA(RandomForestRegressor, BasePredictor):
 
 # %% ../nbs/02_wSAA.ipynb 10
 @patch
-def getWeightsData(self: RandomForestWSAA, 
-                   X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
-                   outputType: 'all' | # Specifies structure of output.
-                               'onlyPositiveWeights' | 
-                               'summarized' | 
-                               'cumulativeDistribution' | 
-                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
-                   ):
+def getWeights(self: RandomForestWSAA, 
+               X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
+               outputType: 'all' | # Specifies structure of output.
+                           'onlyPositiveWeights' | 
+                           'summarized' | 
+                           'cumulativeDistribution' | 
+                           'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
+               scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
+               ):
 
     leafIndicesDf = self.apply(X)
 
@@ -91,15 +91,15 @@ def fit(self: SAA,
 
 # %% ../nbs/02_wSAA.ipynb 19
 @patch
-def getWeightsData(self: SAA, 
-                   X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
-                   outputType: 'all' | # Specifies structure of output.
-                               'onlyPositiveWeights' | 
-                               'summarized' | 
-                               'cumulativeDistribution' | 
-                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
-                   ):
+def getWeights(self: SAA, 
+               X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
+               outputType: 'all' | # Specifies structure of output.
+                           'onlyPositiveWeights' | 
+                           'summarized' | 
+                           'cumulativeDistribution' | 
+                           'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
+               scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
+               ):
 
     if X is None:
         neighborsList = [np.arange(len(self.y))]
