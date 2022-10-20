@@ -66,85 +66,36 @@ class LevelSetKDE(BasePredictor):
         return f"LevelSetKDE(estimator = {self.estimator}, binSize = {self.binSize})"
     __repr__ = __str__      
     
+
+# %% ../nbs/01_levelSetKDE.ipynb 9
+@patch
+def fit(self: LevelSetKDE, 
+        X: np.ndarray, # Feature matrix used by 'estimator' to predict 'y'.
+        y: np.ndarray, # 1-dimensional target variable corresponding to the features 'X'.
+        ):
+
+    if self.binSize > y.shape[0]:
+        raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
+
+    yPredTrain = self.estimator.predict(X)
+
+    binPerTrainPred, indicesPerBin = generateBins(binSize = self.binSize,
+                                                  yPredTrain = yPredTrain)
+
     #---
-    
-    def fit(self, 
-            X: np.ndarray, # Feature matrix used by 'estimator' to predict 'y'.
-            y: np.ndarray, # 1-dimensional target variable corresponding to the features 'X'.
-            ):
 
-        if self.binSize > y.shape[0]:
-            raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
+    nn = NearestNeighbors(algorithm = 'kd_tree')
+    yPredTrain_reshaped = np.reshape(yPredTrain, newshape = (len(yPredTrain), 1))
 
-        yPredTrain = self.estimator.predict(X)
+    nn.fit(X = yPredTrain_reshaped)
 
-        binPerTrainPred, indicesPerBin = generateBins(binSize = self.binSize,
-                                                      yPredTrain = yPredTrain)
-
-        #---
-
-        nn = NearestNeighbors(algorithm = 'kd_tree')
-        yPredTrain_reshaped = np.reshape(yPredTrain, newshape = (len(yPredTrain), 1))
-
-        nn.fit(X = yPredTrain_reshaped)
-
-        #---
-
-        self.y = y
-        self.yPredTrain = yPredTrain
-        self.binPerTrainPred = binPerTrainPred
-        self.indicesPerBin = indicesPerBin
-        self.nearestNeighborsOnPreds = nn
-        
     #---
-    
-    def getWeights(self, 
-                   X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
-                   outputType: 'all' | # Specifies structure of output.
-                               'onlyPositiveWeights' | 
-                               'summarized' | 
-                               'cumulativeDistribution' | 
-                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
-                   ):
-        
-        binPerTrainPred = self.binPerTrainPred
-        indicesPerBin = self.indicesPerBin
-        nearestNeighborsOnPreds = self.nearestNeighborsOnPreds
 
-        #---
-
-        yPred = self.estimator.predict(X)   
-        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
-
-        nearestPredIndex = nearestNeighborsOnPreds.kneighbors(X = yPred_reshaped, 
-                                                              n_neighbors = 1, 
-                                                              return_distance = False).ravel()
-
-        nearestPredNeighbor = self.yPredTrain[nearestPredIndex]
-
-        neighborsList = [indicesPerBin[binPerTrainPred[nearestPredNeighbor[i]]] for i in range(len(yPred))]
-
-        #---
-
-        # Checks        
-        for i in range(len(neighborsList)):
-            if len(neighborsList[i]) < self.binSize:
-                ipdb.set_trace()
-
-        #---
-
-        # weightsDataList is a list whose elements correspond to one test prediction each. 
-        weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
-
-        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                     outputType = outputType, 
-                                                     y = self.y,
-                                                     scalingList = scalingList,
-                                                     equalWeights = True)
-
-        return weightsDataList
-    
+    self.y = y
+    self.yPredTrain = yPredTrain
+    self.binPerTrainPred = binPerTrainPred
+    self.indicesPerBin = indicesPerBin
+    self.nearestNeighborsOnPreds = nn
 
 # %% ../nbs/01_levelSetKDE.ipynb 12
 def generateBins(binSize: int, # Size of the bins of values being grouped together.
@@ -206,7 +157,56 @@ def generateBins(binSize: int, # Size of the bins of values being grouped togeth
     
     return binPerPred, indicesPerBin
 
-# %% ../nbs/01_levelSetKDE.ipynb 14
+# %% ../nbs/01_levelSetKDE.ipynb 13
+@patch
+def getWeights(self: LevelSetKDE, 
+               X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
+               outputType: 'all' | # Specifies structure of output.
+                           'onlyPositiveWeights' | 
+                           'summarized' | 
+                           'cumulativeDistribution' | 
+                           'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
+               scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
+               ):
+        
+    binPerTrainPred = self.binPerTrainPred
+    indicesPerBin = self.indicesPerBin
+    nearestNeighborsOnPreds = self.nearestNeighborsOnPreds
+
+    #---
+
+    yPred = self.estimator.predict(X)   
+    yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
+
+    nearestPredIndex = nearestNeighborsOnPreds.kneighbors(X = yPred_reshaped, 
+                                                          n_neighbors = 1, 
+                                                          return_distance = False).ravel()
+
+    nearestPredNeighbor = self.yPredTrain[nearestPredIndex]
+
+    neighborsList = [indicesPerBin[binPerTrainPred[nearestPredNeighbor[i]]] for i in range(len(yPred))]
+
+    #---
+
+    # Checks        
+    for i in range(len(neighborsList)):
+        if len(neighborsList[i]) < self.binSize:
+            ipdb.set_trace()
+
+    #---
+
+    # weightsDataList is a list whose elements correspond to one test prediction each. 
+    weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+
+    weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                 outputType = outputType, 
+                                                 y = self.y,
+                                                 scalingList = scalingList,
+                                                 equalWeights = True)
+
+    return weightsDataList
+
+# %% ../nbs/01_levelSetKDE.ipynb 16
 class LevelSetKDE_kNN(BasePredictor):
     """
      `LevelSetKDE_kNN` turns any point predictor that has a .predict-method 
@@ -222,7 +222,6 @@ class LevelSetKDE_kNN(BasePredictor):
     
     NOTE 1: The `LevelSetKDE_kNN` class can only be applied to estimators that 
     have been fitted already.
-    
     NOTE 2: In contrast to the standard `LevelSetKDE`, it is possible to apply
     `LevelSetKDE_kNN` to arbitrary dimensional point predictors.
     """
@@ -254,85 +253,85 @@ class LevelSetKDE_kNN(BasePredictor):
     def __str__(self):
         return f"LevelSetKDE_kNN(estimator = {self.estimator}, binSize = {self.binSize})"
     __repr__ = __str__   
-    
-    #---
-    
-    def fit(self:LevelSetKDE_kNN, 
-            X: np.ndarray, # Feature matrix used by 'estimator' to predict 'y'.
-            y: np.ndarray, # Target variable corresponding to features 'X'.
-            ):
-
-        if self.binSize > y.shape[0]:
-            raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
-
-        yPredTrain = self.estimator.predict(X)
-        yPredTrain_reshaped = np.reshape(yPredTrain, newshape = (len(yPredTrain), 1))
-
-        nn = NearestNeighbors(algorithm = 'kd_tree')
-        nn.fit(X = yPredTrain_reshaped)
-
-        #---
-
-        self.y = y
-        self.yPredTrain = yPredTrain
-        self.nearestNeighborsOnPreds = nn
-        
-    #---
-    
-    def getWeights(self: LevelSetKDE_kNN, 
-                   X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
-                   outputType: 'all' | # Specifies structure of output.
-                               'onlyPositiveWeights' | 
-                               'summarized' | 
-                               'cumulativeDistribution' | 
-                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
-                   ):
-
-        nn = self.nearestNeighborsOnPreds
-
-        #---
-
-        yPred = self.estimator.predict(X)   
-        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
-
-        distancesDf, neighborsMatrix = nn.kneighbors(X = yPred_reshaped, 
-                                                     n_neighbors = self.binSize + 1)
-
-        #---
-
-        neighborsList = list(neighborsMatrix[:, 0:self.binSize])
-        distanceCheck = np.where(distancesDf[:, self.binSize - 1] == distancesDf[:, self.binSize])
-        indicesToMod = distanceCheck[0]
-
-        for index in indicesToMod:
-            distanceExtremePoint = np.absolute(yPred[index] - self.yPredTrain[neighborsMatrix[index, self.binSize-1]])
-
-            neighborsByRadius = nn.radius_neighbors(X = yPred_reshaped[index:index + 1], 
-                                                    radius = distanceExtremePoint, return_distance = False)[0]
-            neighborsList[index] = neighborsByRadius
-
-        #---
-
-        for i in range(len(neighborsList)):
-            if len(neighborsList[i]) < self.binSize:
-                ipdb.set_trace()
-
-        #---
-
-        # weightsDataList is a list whose elements correspond to one test prediction each. 
-        weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
-
-        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                     outputType = outputType, 
-                                                     y = self.y,
-                                                     scalingList = scalingList,
-                                                     equalWeights = True)
-
-        return weightsDataList
       
 
-# %% ../nbs/01_levelSetKDE.ipynb 19
+# %% ../nbs/01_levelSetKDE.ipynb 18
+@patch 
+def fit(self:LevelSetKDE_kNN, 
+        X: np.ndarray, # Feature matrix used by 'estimator' to predict 'y'.
+        y: np.ndarray, # Target variable corresponding to features 'X'.
+        ):
+
+    if self.binSize > y.shape[0]:
+        raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
+
+    yPredTrain = self.estimator.predict(X)
+    yPredTrain_reshaped = np.reshape(yPredTrain, newshape = (len(yPredTrain), 1))
+
+    nn = NearestNeighbors(algorithm = 'kd_tree')
+    nn.fit(X = yPredTrain_reshaped)
+
+    #---
+
+    self.y = y
+    self.yPredTrain = yPredTrain
+    self.nearestNeighborsOnPreds = nn
+
+# %% ../nbs/01_levelSetKDE.ipynb 20
+@patch
+def getWeights(self: LevelSetKDE_kNN, 
+               X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
+               outputType: 'all' | # Specifies structure of output.
+                           'onlyPositiveWeights' | 
+                           'summarized' | 
+                           'cumulativeDistribution' | 
+                           'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
+               scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
+               ):
+
+    nn = self.nearestNeighborsOnPreds
+
+    #---
+
+    yPred = self.estimator.predict(X)   
+    yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
+
+    distancesDf, neighborsMatrix = nn.kneighbors(X = yPred_reshaped, 
+                                                 n_neighbors = self.binSize + 1)
+
+    #---
+
+    neighborsList = list(neighborsMatrix[:, 0:self.binSize])
+    distanceCheck = np.where(distancesDf[:, self.binSize - 1] == distancesDf[:, self.binSize])
+    indicesToMod = distanceCheck[0]
+
+    for index in indicesToMod:
+        distanceExtremePoint = np.absolute(yPred[index] - self.yPredTrain[neighborsMatrix[index, self.binSize-1]])
+
+        neighborsByRadius = nn.radius_neighbors(X = yPred_reshaped[index:index + 1], 
+                                                radius = distanceExtremePoint, return_distance = False)[0]
+        neighborsList[index] = neighborsByRadius
+
+    #---
+
+    for i in range(len(neighborsList)):
+        if len(neighborsList[i]) < self.binSize:
+            ipdb.set_trace()
+
+    #---
+
+    # weightsDataList is a list whose elements correspond to one test prediction each. 
+    weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+
+    weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                 outputType = outputType, 
+                                                 y = self.y,
+                                                 scalingList = scalingList,
+                                                 equalWeights = True)
+
+    return weightsDataList
+
+# %% ../nbs/01_levelSetKDE.ipynb 23
 class binSizeCV:
 
     def __init__(self,
@@ -380,7 +379,7 @@ class binSizeCV:
         self.cv_results_raw = None
         
 
-# %% ../nbs/01_levelSetKDE.ipynb 21
+# %% ../nbs/01_levelSetKDE.ipynb 25
 @patch
 def fit(self: binSizeCV, 
         X, 
@@ -448,7 +447,7 @@ def fit(self: binSizeCV,
 
         self.best_estimatorLSF = LSF
 
-# %% ../nbs/01_levelSetKDE.ipynb 24
+# %% ../nbs/01_levelSetKDE.ipynb 28
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
@@ -517,7 +516,7 @@ def scoresForFold(cvFold, binSizeGrid, probs, estimator, LSF_type, y, X):
     
     return coefPresDf
 
-# %% ../nbs/01_levelSetKDE.ipynb 26
+# %% ../nbs/01_levelSetKDE.ipynb 30
 def getCoefPres(decisions, decisionsSAA, yTest, prob):
 
     # Newsvendor Costs of our model
