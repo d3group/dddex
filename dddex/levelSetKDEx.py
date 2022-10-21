@@ -16,7 +16,7 @@ from .basePredictor import BasePredictor, restructureWeightsDataList
 # %% auto 0
 __all__ = ['LevelSetKDEx', 'generateBins', 'LevelSetKDEx_kNN', 'binSizeCV', 'scoresForFold', 'getCoefPres']
 
-# %% ../nbs/01_levelSetKDEx.ipynb 7
+# %% ../nbs/01_levelSetKDEx.ipynb 8
 class LevelSetKDEx(BasePredictor):
     """
     `LevelSetKDEx` turns any point predictor that has a .predict-method 
@@ -147,7 +147,7 @@ class LevelSetKDEx(BasePredictor):
         return weightsDataList
     
 
-# %% ../nbs/01_levelSetKDEx.ipynb 12
+# %% ../nbs/01_levelSetKDEx.ipynb 13
 def generateBins(binSize: int, # Size of the bins of values being grouped together.
                  yPredTrain: np.ndarray, # 1-dimensional array of predicted values.
                  ):
@@ -207,7 +207,7 @@ def generateBins(binSize: int, # Size of the bins of values being grouped togeth
     
     return binPerPred, indicesPerBin
 
-# %% ../nbs/01_levelSetKDEx.ipynb 14
+# %% ../nbs/01_levelSetKDEx.ipynb 15
 class LevelSetKDEx_kNN(BasePredictor):
     """
      `LevelSetKDEx_kNN` turns any point predictor that has a .predict-method 
@@ -333,7 +333,7 @@ class LevelSetKDEx_kNN(BasePredictor):
         return weightsDataList
       
 
-# %% ../nbs/01_levelSetKDEx.ipynb 19
+# %% ../nbs/01_levelSetKDEx.ipynb 20
 class binSizeCV:
 
     def __init__(self,
@@ -381,7 +381,7 @@ class binSizeCV:
         self.cv_results_raw = None
         
 
-# %% ../nbs/01_levelSetKDEx.ipynb 21
+# %% ../nbs/01_levelSetKDEx.ipynb 22
 @patch
 def fit(self: binSizeCV, 
         X, 
@@ -449,7 +449,7 @@ def fit(self: binSizeCV,
 
         self.best_estimatorLSF = LSF
 
-# %% ../nbs/01_levelSetKDEx.ipynb 24
+# %% ../nbs/01_levelSetKDEx.ipynb 25
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
@@ -518,7 +518,7 @@ def scoresForFold(cvFold, binSizeGrid, probs, estimator, LSF_type, y, X):
     
     return coefPresDf
 
-# %% ../nbs/01_levelSetKDEx.ipynb 26
+# %% ../nbs/01_levelSetKDEx.ipynb 27
 def getCoefPres(decisions, decisionsSAA, yTest, prob):
 
     # Newsvendor Costs of our model
