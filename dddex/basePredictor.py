@@ -11,6 +11,8 @@ import pandas as pd
 import numpy as np
 from collections import Counter, defaultdict
 
+import ipdb
+
 # %% auto 0
 __all__ = ['BasePredictor', 'restructureWeightsDataList', 'summarizeWeightsData']
 
@@ -22,14 +24,9 @@ class BasePredictor(ABC):
     """
     
     @abstractmethod
-    def __init__(self):
-        """Define weights-based predictor"""
-        
-    def fit(self, X, y):
-        """Fit weights-based predictor on training samples"""
-        
     def getWeights(self, X):
         """Compute weights for every sample specified by feature matrix 'X'"""
+        pass
 
     # def predictQuantiles(self: BasePredictor, 
     #                      X: np.ndarray, # Feature matrix of samples for which conditional quantiles are computed.
@@ -45,10 +42,6 @@ class BasePredictor(ABC):
                  scalingList = None, 
                  ):
         
-       
-        
-        
-
         distributionDataList = self.getWeights(X = X,
                                                outputType = 'cumulativeDistribution',
                                                scalingList = scalingList)
@@ -77,9 +70,7 @@ class BasePredictor(ABC):
     
 
 # %% ../nbs/00_basePredictor.ipynb 12
-def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeights', y= None, scalingList = None, equalWeights = False):
-    
-    
+def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeights', y = None, scalingList = None, equalWeights = False):
     
     if outputType == 'all':
         

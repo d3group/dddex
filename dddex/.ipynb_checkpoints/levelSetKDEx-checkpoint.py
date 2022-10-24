@@ -12,14 +12,129 @@ from sklearn.neighbors import NearestNeighbors
 from collections import defaultdict
 from joblib import Parallel, delayed, dump, load
 
-import ipdb
-
 from .basePredictor import BasePredictor, restructureWeightsDataList
 
 # %% auto 0
-__all__ = ['LevelSetKDEx', 'generateBins', 'LevelSetKDEx_kNN', 'binSizeCV', 'scoresForFold', 'getCoefPres']
+__all__ = ['LevelSetKDEx2', 'LevelSetKDEx', 'generateBins2', 'generateBins', 'LevelSetKDEx_kNN', 'binSizeCV', 'scoresForFold',
+           'getCoefPres']
 
 # %% ../nbs/01_levelSetKDEx.ipynb 7
+class LevelSetKDEx2(BasePredictor):
+    """
+    `LevelSetKDEx`
+    """
+    
+    def __init__(self, 
+                 estimator, # (Fitted) object with a .predict-method.
+                 binSize: int = None # Size of the bins created to group the training samples.
+                 ):
+        
+        if not (hasattr(estimator, 'predict') and callable(estimator.predict)):
+            raise ValueError("'estimator' has to have a 'predict'-method!")
+        else:
+            self.estimator = estimator
+            
+        if not (isinstance(binSize, (int, np.integer)) or binSize is None):
+            raise ValueError("'binSize' has to be integer (or None if it is supposed to be tuned)!")
+        else:
+            self.binSize = binSize
+        
+        self.estimator = estimator
+        self.binSize = binSize
+        
+        self.y = None
+        self.yPred = None
+        self.binPerTrainPred = None
+        self.indicesPerBin = None
+        self.nearestNeighborsOnPreds = None
+        
+    #---
+    
+    def __str__(self):
+        return f"LevelSetKDEx(estimator = {self.estimator}, binSize = {self.binSize})"
+    __repr__ = __str__      
+    
+    #---
+    
+    def fit(self, 
+            X: np.ndarray, # Feature matrix used by 'estimator' to predict 'y'.
+            y: np.ndarray, # 1-dimensional target variable corresponding to the features 'X'.
+            ):
+
+        if self.binSize > y.shape[0]:
+            raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
+
+        yPred = self.estimator.predict(X)
+
+        binPerTrainPred, indicesPerBin = generateBins(binSize = self.binSize,
+                                                      yPred = yPred)
+
+        #---
+
+        nn = NearestNeighbors(algorithm = 'kd_tree')
+        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
+
+        nn.fit(X = yPred_reshaped)
+
+        #---
+
+        self.y = y
+        self.yPredTrain = yPred
+        self.binPerTrainPred = binPerTrainPred
+        self.indicesPerBin = indicesPerBin
+        self.nearestNeighborsOnPreds = nn
+        
+    #---
+    
+    def getWeights(self, 
+                   X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
+                   outputType: 'all' | # Specifies structure of output.
+                               'onlyPositiveWeights' | 
+                               'summarized' | 
+                               'cumulativeDistribution' | 
+                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
+                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
+                   ):
+        
+        binPerTrainPred = self.binPerTrainPred
+        indicesPerBin = self.indicesPerBin
+        nearestNeighborsOnPreds = self.nearestNeighborsOnPreds
+
+        #---
+
+        yPred = self.estimator.predict(X)   
+        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
+
+        nearestPredIndex = nearestNeighborsOnPreds.kneighbors(X = yPred_reshaped, 
+                                                              n_neighbors = 1, 
+                                                              return_distance = False).ravel()
+
+        nearestPredNeighbor = self.yPredTrain[nearestPredIndex]
+
+        neighborsList = [indicesPerBin[binPerTrainPred[nearestPredNeighbor[i]]] for i in range(len(yPred))]
+
+        #---
+
+        # Checks        
+        for i in range(len(neighborsList)):
+            if len(neighborsList[i]) < self.binSize:
+                ipdb.set_trace()
+
+        #---
+
+        # weightsDataList is a list whose elements correspond to one test prediction each. 
+        weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+
+        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                     outputType = outputType, 
+                                                     y = self.y,
+                                                     scalingList = scalingList,
+                                                     equalWeights = True)
+
+        return weightsDataList
+    
+
+# %% ../nbs/01_levelSetKDEx.ipynb 8
 class LevelSetKDEx(BasePredictor):
     """
     `LevelSetKDEx`
@@ -45,8 +160,9 @@ class LevelSetKDEx(BasePredictor):
         
         self.y = None
         self.yPred = None
+        self.binPerTrainPred = None
         self.indicesPerBin = None
-        self.lowerBoundPerBin = None
+        self.nearestNeighborsOnPreds = None
         
     #---
     
@@ -63,20 +179,26 @@ class LevelSetKDEx(BasePredictor):
 
         if self.binSize > y.shape[0]:
             raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
-        
-        # IMPORTANT: In case 'y' is given as a pandas.Series, we can potentially run into indexing 
-        # problems later on.
-        y = np.array(y)
-        
+
         yPred = self.estimator.predict(X)
-        
-        indicesPerBin, lowerBoundPerBin = generateBins(binSize = self.binSize,
-                                                       yPred = yPred)
+
+        binPerTrainPred, indicesPerBin = generateBins2(binSize = self.binSize,
+                                                      yPred = yPred)
+
+        #---
+
+        nn = NearestNeighbors(algorithm = 'kd_tree')
+        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
+
+        nn.fit(X = yPred_reshaped)
+
+        #---
 
         self.y = y
-        self.yPred = yPred
+        self.yPredTrain = yPred
+        self.binPerTrainPred = binPerTrainPred
         self.indicesPerBin = indicesPerBin
-        self.lowerBoundPerBin = lowerBoundPerBin
+        self.nearestNeighborsOnPreds = nn
         
     #---
     
@@ -90,22 +212,102 @@ class LevelSetKDEx(BasePredictor):
                    scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
                    ):
         
-        binPerPred = np.searchsorted(a = self.lowerBoundPerBin, v = self.estimator.predict(X), side = 'right') - 1
-        neighborsList = [self.indicesPerBin[binIndex] for binIndex in binPerPred]
-        
+        binPerTrainPred = self.binPerTrainPred
+        indicesPerBin = self.indicesPerBin
+        nearestNeighborsOnPreds = self.nearestNeighborsOnPreds
+
+        #---
+
+        yPred = self.estimator.predict(X)   
+        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
+
+        nearestPredIndex = nearestNeighborsOnPreds.kneighbors(X = yPred_reshaped, 
+                                                              n_neighbors = 1, 
+                                                              return_distance = False).ravel()
+
+        nearestPredNeighbor = self.yPredTrain[nearestPredIndex]
+
+        neighborsList = [indicesPerBin[binPerTrainPred[nearestPredNeighbor[i]]] for i in range(len(yPred))]
+
+        #---
+
+        # Checks        
+        for i in range(len(neighborsList)):
+            if len(neighborsList[i]) < self.binSize:
+                ipdb.set_trace()
+
+        #---
+
+        # weightsDataList is a list whose elements correspond to one test prediction each. 
         weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
-        
-        
+
         weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                      outputType = outputType, 
                                                      y = self.y,
                                                      scalingList = scalingList,
                                                      equalWeights = True)
-        
+
         return weightsDataList
     
 
-# %% ../nbs/01_levelSetKDEx.ipynb 12
+# %% ../nbs/01_levelSetKDEx.ipynb 13
+def generateBins2(binSize: int, # Size of the bins of values being grouped together.
+                 yPred: np.ndarray, # 1-dimensional array of predicted values.
+                 ):
+    "Used to generate the bin-structure induced by the Level-Set-Forecaster algorithm"
+    
+    yPredUnique = pd.Series(yPred).unique()
+    predIndicesSort = np.argsort(yPredUnique)
+    
+    yPredUniqueSorted = yPredUnique[predIndicesSort]
+    indicesByPred = [np.where(pred == yPred)[0] for pred in yPredUniqueSorted]
+    
+    currentBinSize = 0
+    binIndex = 0
+    binExisting = False
+    trainIndicesLeft = len(yPred)
+    binPerPred = dict()
+    indicesPerBin = defaultdict(list)
+
+    for i in range(len(indicesByPred)):
+        currentBinSize += len(indicesByPred[i])
+        binPerPred[yPredUniqueSorted[i]] = binIndex
+        
+        indicesPerBin[binIndex] = indicesByPred[i]
+
+        trainIndicesLeft -= len(indicesByPred[i])
+        if trainIndicesLeft < binSize:
+            for j in np.arange(i+1, len(indicesByPred), 1):
+                binPerPred[yPredUniqueSorted[j]] = binIndex
+                indicesPerBin[binIndex] = np.append(indicesPerBin[binIndex], indicesByPred[j])
+            break
+
+        if currentBinSize >= binSize:
+            binIndex += 1
+            currentBinSize = 0
+            
+    indicesPerBin = {binIndex: np.array(indices) for binIndex, indices in indicesPerBin.items()}
+    
+    #---
+    
+    # Checks
+    
+    indices = np.array([])
+    for k in range(len(indicesPerBin.keys())):
+        indices = np.append(indices, indicesPerBin[k])
+ 
+    if len(indices) != len(yPred):
+        ipdb.set_trace()
+    
+    predCheck = np.array([pred in binPerPred.keys() for pred in yPred])
+    keyCheck = np.array([key in yPred for key in binPerPred.keys()])
+    
+    if (all(predCheck) & all(keyCheck)) is False:
+        ipdb.set_trace()
+    
+    return binPerPred, indicesPerBin
+
+# %% ../nbs/01_levelSetKDEx.ipynb 14
 def generateBins(binSize: int, # Size of the bins of values being grouped together.
                  yPred: np.ndarray, # 1-dimensional array of predicted values.
                  ):
@@ -119,47 +321,53 @@ def generateBins(binSize: int, # Size of the bins of values being grouped togeth
     
     currentBinSize = 0
     binIndex = 0
+    binExisting = False
     trainIndicesLeft = len(yPred)
-    indicesPerBin = defaultdict(list)
-    lowerBoundPerBin = dict()
-    
+    binPerPred = dict()
+    indicesPerBin = dict()
+
     for i in range(len(indicesByPred)):
-        
-        if i == 0:
-            lowerBoundPerBin[binIndex] = np.NINF
-            
         currentBinSize += len(indicesByPred[i])
+        binPerPred[yPredUniqueSorted[i]] = binIndex
         
-        indicesPerBin[binIndex].extend(indicesByPred[i])
-        
+        if binExisting:
+            indicesPerBin[binIndex] = np.append(indicesPerBin[binIndex], indicesByPred[i])
+        else:
+            indicesPerBin[binIndex] = indicesByPred[i]
+            binExisting = True
+
         trainIndicesLeft -= len(indicesByPred[i])
-        
-        if trainIndicesLeft < binSize:          
+        if trainIndicesLeft < binSize:
             for j in np.arange(i+1, len(indicesByPred), 1):
-                indicesPerBin[binIndex].extend(indicesByPred[j])
+                binPerPred[yPredUniqueSorted[j]] = binIndex
+                indicesPerBin[binIndex] = np.append(indicesPerBin[binIndex], indicesByPred[j])
             break
 
         if currentBinSize >= binSize:
-            lowerBoundPerBin[binIndex + 1] = (yPredUniqueSorted[i] + yPredUniqueSorted[i+1]) / 2
             binIndex += 1
             currentBinSize = 0
-            
-    indicesPerBin = {binIndex: np.array(indices) for binIndex, indices in indicesPerBin.items()}
+            binExisting = False
     
-    lowerBoundPerBin = pd.Series(lowerBoundPerBin)
-    lowerBoundPerBin.index.name = 'binIndex'
+    #---
+    
+    # Checks
     
     indices = np.array([])
     for k in range(len(indicesPerBin.keys())):
         indices = np.append(indices, indicesPerBin[k])
-
+ 
     if len(indices) != len(yPred):
         ipdb.set_trace()
-
     
-    return indicesPerBin, lowerBoundPerBin
+    predCheck = np.array([pred in binPerPred.keys() for pred in yPred])
+    keyCheck = np.array([key in yPred for key in binPerPred.keys()])
+    
+    if (all(predCheck) & all(keyCheck)) is False:
+        ipdb.set_trace()
+    
+    return binPerPred, indicesPerBin
 
-# %% ../nbs/01_levelSetKDEx.ipynb 14
+# %% ../nbs/01_levelSetKDEx.ipynb 16
 class LevelSetKDEx_kNN(BasePredictor):
     """
      `LevelSetKDEx_kNN` turns any point predictor that has a .predict-method 
@@ -227,7 +435,7 @@ class LevelSetKDEx_kNN(BasePredictor):
         #---
 
         self.y = y
-        self.yPred = yPred
+        self.yPredTrain = yPred
         self.nearestNeighborsOnPreds = nn
         
     #---
@@ -259,11 +467,17 @@ class LevelSetKDEx_kNN(BasePredictor):
         indicesToMod = distanceCheck[0]
 
         for index in indicesToMod:
-            distanceExtremePoint = np.absolute(yPred[index] - self.yPred[neighborsMatrix[index, self.binSize-1]])
+            distanceExtremePoint = np.absolute(yPred[index] - self.yPredTrain[neighborsMatrix[index, self.binSize-1]])
 
             neighborsByRadius = nn.radius_neighbors(X = yPred_reshaped[index:index + 1], 
                                                     radius = distanceExtremePoint, return_distance = False)[0]
             neighborsList[index] = neighborsByRadius
+
+        #---
+
+        for i in range(len(neighborsList)):
+            if len(neighborsList[i]) < self.binSize:
+                ipdb.set_trace()
 
         #---
 
@@ -279,7 +493,7 @@ class LevelSetKDEx_kNN(BasePredictor):
         return weightsDataList
       
 
-# %% ../nbs/01_levelSetKDEx.ipynb 19
+# %% ../nbs/01_levelSetKDEx.ipynb 21
 class binSizeCV:
 
     def __init__(self,
@@ -327,7 +541,7 @@ class binSizeCV:
         self.cv_results_raw = None
         
 
-# %% ../nbs/01_levelSetKDEx.ipynb 21
+# %% ../nbs/01_levelSetKDEx.ipynb 23
 @patch
 def fit(self: binSizeCV, 
         X, 
@@ -395,7 +609,7 @@ def fit(self: binSizeCV,
 
         self.best_estimatorLSF = LSF
 
-# %% ../nbs/01_levelSetKDEx.ipynb 24
+# %% ../nbs/01_levelSetKDEx.ipynb 26
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
@@ -464,7 +678,7 @@ def scoresForFold(cvFold, binSizeGrid, probs, estimator, LSF_type, y, X):
     
     return coefPresDf
 
-# %% ../nbs/01_levelSetKDEx.ipynb 26
+# %% ../nbs/01_levelSetKDEx.ipynb 28
 def getCoefPres(decisions, decisionsSAA, yTest, prob):
 
     # Newsvendor Costs of our model
