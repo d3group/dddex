@@ -11,8 +11,6 @@ import pandas as pd
 import numpy as np
 from collections import Counter, defaultdict
 
-import ipdb
-
 # %% auto 0
 __all__ = ['BasePredictor', 'restructureWeightsDataList', 'summarizeWeightsData']
 

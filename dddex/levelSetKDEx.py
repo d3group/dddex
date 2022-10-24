@@ -12,8 +12,6 @@ from sklearn.neighbors import NearestNeighbors
 from collections import defaultdict
 from joblib import Parallel, delayed, dump, load
 
-import ipdb
-
 from .basePredictor import BasePredictor, restructureWeightsDataList
 
 # %% auto 0
@@ -148,14 +146,6 @@ def generateBins(binSize: int, # Size of the bins of values being grouped togeth
     
     lowerBoundPerBin = pd.Series(lowerBoundPerBin)
     lowerBoundPerBin.index.name = 'binIndex'
-    
-    indices = np.array([])
-    for k in range(len(indicesPerBin.keys())):
-        indices = np.append(indices, indicesPerBin[k])
-
-    if len(indices) != len(yPred):
-        ipdb.set_trace()
-
     
     return indicesPerBin, lowerBoundPerBin
 

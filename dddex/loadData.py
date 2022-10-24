@@ -8,16 +8,12 @@ from fastcore.utils import *
 
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
 
-from os.path import dirname, join
+from os.path import join
 from tsfresh.feature_extraction import MinimalFCParameters
 from tsfresh.utilities.dataframe_functions import roll_time_series
 from tsfresh import extract_features
 import pathlib
-
-import inspect
-import ipdb
 
 # %% auto 0
 __all__ = ['loadDataYaz', 'add_lag_features']
