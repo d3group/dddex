@@ -14,6 +14,7 @@ from os.path import dirname, join
 from tsfresh.feature_extraction import MinimalFCParameters
 from tsfresh.utilities.dataframe_functions import roll_time_series
 from tsfresh import extract_features
+import pathlib
 
 import inspect
 import ipdb
@@ -24,7 +25,8 @@ __all__ = ['loadDataYaz', 'add_lag_features']
 # %% ../nbs/loadData.ipynb 3
 def loadDataYaz(testDays = 28, returnXY = True):
     
-    modulePath = os.getcwd()
+    modulePath = pathlib.Path().resolve()
+    modulePath = modulePath.parents[0]
     baseDir = join(modulePath, 'datasets')
     dataFilename = join(baseDir, 'dataYaz.csv')
     
