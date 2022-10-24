@@ -15,20 +15,22 @@ from tsfresh.utilities.dataframe_functions import roll_time_series
 from tsfresh import extract_features
 import pathlib
 
+import ipdb
+
 # %% auto 0
 __all__ = ['loadDataYaz', 'add_lag_features']
 
 # %% ../nbs/loadData.ipynb 3
 def loadDataYaz(testDays = 28, returnXY = True):
     
-    modulePath = pathlib.Path().resolve()
-    modulePath = modulePath.parents[0]
-    baseDir = join(modulePath, 'datasets')
-    dataFilename = join(baseDir, 'dataYaz.csv')
+    currentFile = __file__
+    scriptPath = os.path.realpath(currentFile)  # /home/user/test/my_script.py
+    dirPath = os.path.dirname(scriptPath)  # /home/user/test
     
-    dataFilename = '/home/kagu/dddex/dddex/datasets/dataYaz.csv'
+    dataDirPath = join(dirPath, 'datasets')
+    dataPath = join(dataDirPath, 'dataYaz.csv')
     
-    data = pd.read_csv(dataFilename)
+    data = pd.read_csv(dataPath)
     
     # Label
     if isinstance(testDays, int):
