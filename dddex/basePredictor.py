@@ -165,8 +165,8 @@ def summarizeWeightsData(weightsPos, yWeightPos, equalWeights = False):
     else:
         duplicationDict = defaultdict(list)
 
-        for i, item in enumerate(yWeightPos):
-            duplicationDict[item].append(i)
+        for i, yValue in enumerate(yWeightPos):
+            duplicationDict[yValue].append(i)
 
         #---
 
