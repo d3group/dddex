@@ -21,7 +21,7 @@ import ipdb
 __all__ = ['loadDataYaz', 'add_lag_features']
 
 # %% ../nbs/04_loadData.ipynb 3
-def loadDataYaz(testDays = 28, returnXY = True):
+def loadDataYaz(testDays = 28, returnXY = True, daysToCut = 0):
     
     currentFile = __file__
     scriptPath = os.path.realpath(currentFile)  # /home/user/test/my_script.py
@@ -32,6 +32,11 @@ def loadDataYaz(testDays = 28, returnXY = True):
     
     data = pd.read_csv(dataPath)
     
+    # Cutting away daysToCut-many at end of data: Useful for evaluating
+    # evaluation on data in a rolled manner
+    cutOffDate = data.dayIndex.max() - daysToCut
+    data = data[data['dayIndex'] <= cutOffDate].reset_index(drop = True)
+    
     # Label
     if isinstance(testDays, int):
         nDaysTest = testDays
@@ -39,8 +44,8 @@ def loadDataYaz(testDays = 28, returnXY = True):
         tsSizes = data.groupby(['id']).size()
         nDaysTest = int(tsSizes.iloc[0] * testDays)
         
-    cutoffDate = data.dayIndex.max() - nDaysTest
-    data['label'] = ['train' if data.dayIndex.iloc[i] <= cutoffDate else 'test' for i in range(data.shape[0])]    
+    cutoffDateTest = data.dayIndex.max() - nDaysTest
+    data['label'] = ['train' if data.dayIndex.iloc[i] <= cutoffDateTest else 'test' for i in range(data.shape[0])]    
 
     # Normalize Demand
     scalingData = data[data.label == 'train'].groupby('id')['demand'].agg('max').reset_index()
