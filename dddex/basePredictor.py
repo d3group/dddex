@@ -38,11 +38,12 @@ class BasePredictor(ABC):
                  probs = [0.1, 0.5, 0.9], 
                  outputAsDf = False, 
                  scalingList = None, 
-                 ):
+                 **kwargs):
         
         distributionDataList = self.getWeights(X = X,
                                                outputType = 'cumulativeDistribution',
-                                               scalingList = scalingList)
+                                               scalingList = scalingList,
+                                               **kwargs)
 
         quantilesDict = {prob: [] for prob in probs}
 
