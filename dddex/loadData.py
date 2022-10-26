@@ -15,8 +15,6 @@ from tsfresh.utilities.dataframe_functions import roll_time_series
 from tsfresh import extract_features
 import pathlib
 
-import ipdb
-
 # %% auto 0
 __all__ = ['loadDataYaz', 'add_lag_features']
 
