@@ -81,6 +81,7 @@ class LevelSetKDEx(BasePredictor):
     
     def getWeights(self, 
                    X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
+                   weightsByDistance: bool = False,
                    outputType: 'all' | # Specifies structure of output.
                                'onlyPositiveWeights' | 
                                'summarized' | 
@@ -89,17 +90,46 @@ class LevelSetKDEx(BasePredictor):
                    scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
                    ):
         
-        binPerPred = np.searchsorted(a = self.lowerBoundPerBin, v = self.estimator.predict(X), side = 'right') - 1
+        yPredTest = self.estimator.predict(X)
+        
+        binPerPred = np.searchsorted(a = self.lowerBoundPerBin, v = yPredTest, side = 'right') - 1
         neighborsList = [self.indicesPerBin[binIndex] for binIndex in binPerPred]
         
-        weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+        if weightsByDistance:
+
+            predDistances = [np.abs(self.yPred[neighborsList[i]] - yPredTest[i]) for i in range(len(neighborsList))]
+
+            weightsDataList = list()
+            
+            for i in range(X.shape[0]):
+                distances = predDistances[i]
+                distancesCloseZero = np.isclose(distances, 0)
+                
+                if np.any(distancesCloseZero):
+                    indicesCloseZero = neighborsList[i][np.where(distancesCloseZero)[0]]
+                    weightsDataList.append((np.repeat(1 / len(indicesCloseZero), len(indicesCloseZero)),
+                                            indicesCloseZero))
+                    
+                else:                                 
+                    inverseDistances = 1 / distances
+
+                    weightsDataList.append((inverseDistances / inverseDistances.sum(), 
+                                            np.array(neighborsList[i])))
+            
+            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                         outputType = outputType, 
+                                                         y = self.y,
+                                                         scalingList = scalingList,
+                                                         equalWeights = False)
         
-        
-        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                     outputType = outputType, 
-                                                     y = self.y,
-                                                     scalingList = scalingList,
-                                                     equalWeights = True)
+        else:
+            weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+
+            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                         outputType = outputType, 
+                                                         y = self.y,
+                                                         scalingList = scalingList,
+                                                         equalWeights = True)
         
         return weightsDataList
     
@@ -196,7 +226,7 @@ class LevelSetKDEx_kNN(BasePredictor):
     
     #---
     
-    def fit(self:LevelSetKDEx_kNN, 
+    def fit(self: LevelSetKDEx_kNN, 
             X: np.ndarray, # Feature matrix used by 'estimator' to predict 'y'.
             y: np.ndarray, # Target variable corresponding to features 'X'.
             ):
@@ -227,7 +257,7 @@ class LevelSetKDEx_kNN(BasePredictor):
                                'cumulativeDistribution' | 
                                'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
                    scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
-                   ):
+                  ):
 
         nn = self.nearestNeighborsOnPreds
 
@@ -261,11 +291,22 @@ class LevelSetKDEx_kNN(BasePredictor):
             distancesMatrix, neighborsMatrix = nn.kneighbors(X = yPred_reshaped, 
                                                              n_neighbors = binSizeMax)
             
-            inverseDistancesMatrix = 1 / distancesMatrix
+            weightsDataList = list()
+            
+            for i in range(X.shape[0]):
+                distances = distancesMatrix[i, 0:binSizesReal[i]]
+                distancesCloseZero = np.isclose(distances, 0)
+                
+                if np.any(distancesCloseZero):
+                    indicesCloseZero = neighborsMatrix[i, np.where(distancesCloseZero)[0]]
+                    weightsDataList.append((np.repeat(1 / len(indicesCloseZero), len(indicesCloseZero)),
+                                            indicesCloseZero))
+                    
+                else:                                 
+                    inverseDistances = 1 / distances
 
-            weightsDataList = [(inverseDistancesMatrix[i, 0:binSizesReal[i]] / inverseDistancesMatrix[i, 0:binSizesReal[i]].sum(), 
-                                np.array(neighborsList[i])) 
-                                for i in range(len(neighborsList))]
+                    weightsDataList.append((inverseDistances / inverseDistances.sum(), 
+                                            np.array(neighborsList[i])))
             
             weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                          outputType = outputType, 
@@ -292,6 +333,7 @@ class binSizeCV:
                  estimator, # Object with a .predict-method (fitted).
                  cvFolds, # Specifies cross-validation-splits. Identical to 'cv' used for cross-validation in sklearn.
                  LSF_type: 'LSF' | 'LSF_kNN', # Specifies which LSF-Object we work with during cross-validation.
+                 weightsByDistance: bool = False,
                  binSizeGrid: list | np.ndarray = [4, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 
                                                    100, 125, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900,
                                                    1000, 1250, 1500, 1750, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000], # binSize (int) values being evaluated.                
@@ -321,6 +363,7 @@ class binSizeCV:
         
         #---
         
+        self.weightsByDistance = weightsByDistance
         self.binSizeGrid = binSizeGrid        
         self.cvFolds = cvFolds
         self.refitPerProb = refitPerProb
@@ -346,13 +389,23 @@ def fit(self: binSizeCV,
     nSmallestTrainSample = len(self.cvFolds[0][0])
     self.binSizeGrid = [binSize for binSize in self.binSizeGrid if binSize <= nSmallestTrainSample]
     
-    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(scoresForFold)(cvFold = cvFold,
-                                                                          binSizeGrid = self.binSizeGrid,
-                                                                          probs = self.probs,
-                                                                          estimator = self.estimator,
-                                                                          LSF_type = self.LSF_type,
-                                                                          y = y,
-                                                                          X = X) for cvFold in self.cvFolds)    
+    # scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(scoresForFold)(cvFold = cvFold,
+    #                                                                       binSizeGrid = self.binSizeGrid,
+    #                                                                       probs = self.probs,
+    #                                                                       estimator = self.estimator,
+    #                                                                       LSF_type = self.LSF_type,
+    #                                                                       weightsByDistance = self.weightsByDistance,
+    #                                                                       y = y,
+    #                                                                       X = X) for cvFold in self.cvFolds)
+    
+    scoresPerFold = [scoresForFold(cvFold = cvFold,
+                                   binSizeGrid = self.binSizeGrid,
+                                   probs = self.probs,
+                                   estimator = self.estimator,
+                                   LSF_type = self.LSF_type,
+                                   weightsByDistance = self.weightsByDistance,
+                                   y = y,
+                                   X = X) for cvFold in self.cvFolds]
 
     self.cv_results_raw = scoresPerFold
     meanCostsDf = sum(scoresPerFold) / len(scoresPerFold)
@@ -403,7 +456,7 @@ def fit(self: binSizeCV,
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
-def scoresForFold(cvFold, binSizeGrid, probs, estimator, LSF_type, y, X):
+def scoresForFold(cvFold, binSizeGrid, probs, estimator, LSF_type, weightsByDistance, y, X):
     
     indicesTrain = cvFold[0]
     indicesTest = cvFold[1]
@@ -444,6 +497,7 @@ def scoresForFold(cvFold, binSizeGrid, probs, estimator, LSF_type, y, X):
         
         quantilesDict = estimatorLSF.predictQ(X = XTestFold,
                                               probs = probs,
+                                              weightsByDistance = weightsByDistance, 
                                               outputAsDf = False)
         
         #---

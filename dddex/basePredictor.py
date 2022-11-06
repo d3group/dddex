@@ -50,7 +50,12 @@ class BasePredictor(ABC):
         for probsDistributionFunction, yDistributionFunction in distributionDataList:
 
             for prob in probs:
-                quantileIndex = np.where(probsDistributionFunction >= prob)[0][0]
+                try:
+                    quantileIndex = np.where(probsDistributionFunction >= prob)[0][0]
+                except:
+                    import ipdb
+                    ipdb.set_trace()
+                    
                 quantile = yDistributionFunction[quantileIndex]
                 quantilesDict[prob].append(quantile)
 
@@ -126,7 +131,7 @@ def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeight
             
             if not scalingList is None:
                 yWeightPosSorted = yWeightPosSorted * scalingList[i]
-                
+            
             distributionDataList.append((cumulativeProbs, yWeightPosSorted))
             
         return distributionDataList
