@@ -8,8 +8,9 @@ from fastcore.utils import *
 
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
 
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.base import MetaEstimatorMixin
 from .baseClasses import BaseWeightsBasedEstimator
 from .utils import restructureWeightsDataList
 
@@ -19,9 +20,14 @@ __all__ = ['RandomForestWSAA', 'SAA']
 # %% ../nbs/02_wSAA.ipynb 9
 class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
     
-    def fit(self, X, y):
+    def fit(self, 
+            X, 
+            y,
+            **kwargs):
 
-        super(RandomForestRegressor, self).fit(X = X, y = y)
+        super().fit(X = X, 
+                    y = y, 
+                    **kwargs)
         
         self.y = y
         self.leafIndicesTrain = self.apply(X)
@@ -67,6 +73,28 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
                                                      equalWeights = False)
 
         return weightsDataList
+    
+    #---
+    
+    def predict(self, 
+                X,
+                probs = [0.1, 0.5, 0.9], 
+                outputAsDf = True, 
+                scalingList = None):
+        
+        return super(MetaEstimatorMixin, self).predict(X = X,
+                                                       probs = probs, 
+                                                       outputAsDf = outputAsDf,
+                                                       scalingList = scalingList)
+    
+    #---
+    
+    def pointPredict(self,
+                     X,
+                     **kwargs):
+        
+        return super().predict(X = X,
+                               **kwargs)
 
 
 # %% ../nbs/02_wSAA.ipynb 14
@@ -118,3 +146,4 @@ class SAA(BaseWeightsBasedEstimator):
                                                      equalWeights = True)
 
         return weightsDataList
+    
