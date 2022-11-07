@@ -453,19 +453,19 @@ def fit(self: binSizeCV,
     nSmallestTrainSample = len(self.cvFolds[0][0])
     self.binSizeGrid = [binSize for binSize in self.binSizeGrid if binSize <= nSmallestTrainSample]
     
-    # scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(scoresForFold)(cvFold = cvFold,
-    #                                                                       binSizeGrid = self.binSizeGrid,
-    #                                                                       probs = self.probs,
-    #                                                                       estimatorLSx = copy.deepcopy(self.estimatorLSx),
-    #                                                                       y = y,
-    #                                                                       X = X) for cvFold in self.cvFolds)
+    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(scoresForFold)(cvFold = cvFold,
+                                                                          binSizeGrid = self.binSizeGrid,
+                                                                          probs = self.probs,
+                                                                          estimatorLSx = copy.deepcopy(self.estimatorLSx),
+                                                                          y = y,
+                                                                          X = X) for cvFold in self.cvFolds)
     
-    scoresPerFold = [scoresForFold(cvFold = cvFold,
-                                   binSizeGrid = self.binSizeGrid,
-                                   probs = self.probs,
-                                   estimatorLSx = copy.deepcopy(self.estimatorLSx),
-                                   y = y,
-                                   X = X) for cvFold in self.cvFolds]
+    # scoresPerFold = [scoresForFold(cvFold = cvFold,
+    #                                binSizeGrid = self.binSizeGrid,
+    #                                probs = self.probs,
+    #                                estimatorLSx = copy.deepcopy(self.estimatorLSx),
+    #                                y = y,
+    #                                X = X) for cvFold in self.cvFolds]
 
     self.cv_results_raw = scoresPerFold
     meanCostsDf = sum(scoresPerFold) / len(scoresPerFold)
