@@ -7,11 +7,133 @@ from fastcore.utils import *
 
 import pandas as pd
 import numpy as np
+from collections import Counter, defaultdict
+import copy
 
 # %% auto 0
-__all__ = ['groupedTimeSeriesSplit', 'generateFinalOutput']
+__all__ = ['restructureWeightsDataList', 'summarizeWeightsData', 'groupedTimeSeriesSplit', 'generateFinalOutput']
 
 # %% ../nbs/03_utils.ipynb 7
+def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeights', y = None, scalingList = None, equalWeights = False):
+    
+    if outputType == 'all':
+        
+        weightsDataListAll = list()
+        
+        for weights, indicesPosWeight in weightsDataList:
+            weightsAll = np.zeros(len(y))
+            weightsAll[indicesPosWeight] = weights
+            weightsDataListAll.append(weightsAll)
+        
+        return weightsDataListAll
+    
+    #---
+    
+    elif outputType == 'onlyPositiveWeights':
+        
+        return weightsDataList
+    
+    #---
+    
+    elif outputType == 'summarized':
+        
+        weightsDataListSummarized = list()
+
+        for i in range(len(weightsDataList)):
+            weightsPos, yWeightPos = weightsDataList[i][0], y[weightsDataList[i][1]]
+            
+            weightsSummarized, yUnique = summarizeWeightsData(weightsPos = weightsPos, 
+                                                              yWeightPos = yWeightPos,
+                                                              equalWeights = equalWeights)
+            
+            if not scalingList is None:
+                yUnique = yUnique * scalingList[i]
+                
+            weightsDataListSummarized.append((weightsSummarized, yUnique))
+            
+        return weightsDataListSummarized
+    
+    #---
+    
+    elif outputType == 'cumulativeDistribution':
+        
+        distributionDataList = list()
+        
+        for i in range(len(weightsDataList)):
+            weightsPos, yWeightPos = weightsDataList[i][0], y[weightsDataList[i][1]]
+            
+            indicesSort = np.argsort(yWeightPos)
+            
+            weightsPosSorted = weightsPos[indicesSort]
+            yWeightPosSorted = yWeightPos[indicesSort]
+            
+            cumulativeProbs = np.cumsum(weightsPosSorted)
+            
+            if not scalingList is None:
+                yWeightPosSorted = yWeightPosSorted * scalingList[i]
+            
+            distributionDataList.append((cumulativeProbs, yWeightPosSorted))
+            
+        return distributionDataList
+    
+    #---
+    
+    elif outputType == 'cumulativeDistributionSummarized':
+        
+        distributionDataList = list()
+        
+        for i in range(len(weightsDataList)):
+            weightsPos, yWeightPos = weightsDataList[i][0], y[weightsDataList[i][1]]
+            
+            weightsSummarizedSorted, yPosWeightUniqueSorted = summarizeWeightsData(weightsPos = weightsPos, 
+                                                                                   yWeightPos = yWeightPos,
+                                                                                   equalWeights = equalWeights)
+            
+            cumulativeProbs = np.cumsum(weightsSummarizedSorted)
+            
+            if not scalingList is None:
+                yPosWeightUniqueSorted = yPosWeightUniqueSorted * scalingList[i]
+                
+            distributionDataList.append((cumulativeProbs, yPosWeightUniqueSorted))
+            
+        return distributionDataList
+    
+
+# %% ../nbs/03_utils.ipynb 9
+def summarizeWeightsData(weightsPos, yWeightPos, equalWeights = False):
+    
+    if equalWeights:
+        counterDict = Counter(yWeightPos)
+        yUniqueSorted = np.sort(list(counterDict.keys()))
+
+        weightsSummarizedSorted = np.array([counterDict[value] / len(yWeightPos) for value in yUniqueSorted])
+    
+    else:
+        duplicationDict = defaultdict(list)
+
+        for i, yValue in enumerate(yWeightPos):
+            duplicationDict[yValue].append(i)
+
+        #---
+
+        weightsSummarized = list()
+        yUnique = list()
+
+        for value, indices in duplicationDict.items():        
+
+            weightsSummarized.append(weightsPos[indices].sum())
+            yUnique.append(value)
+
+        weightsSummarized, yUnique = np.array(weightsSummarized), np.array(yUnique)
+
+        #---
+
+        indicesSort = np.argsort(yUnique)
+        weightsSummarizedSorted, yUniqueSorted = weightsSummarized[indicesSort], yUnique[indicesSort]
+    
+    return weightsSummarizedSorted, yUniqueSorted
+
+# %% ../nbs/03_utils.ipynb 11
 # This function creates the cross-validation folds for every time series. Usually you'd want all test-observations 
 # of each fold to refer to the same time period, but this is impossible to ensure in the case of the two-step models,
 # because the regression of the non-zero observations will always contain data of different time points. For that
@@ -69,7 +191,7 @@ def groupedTimeSeriesSplit(data, kFolds, testLength, groupFeature, timeFeature):
 
     return foldsList
 
-# %% ../nbs/03_utils.ipynb 9
+# %% ../nbs/03_utils.ipynb 13
 def generateFinalOutput(dataOriginal, 
                         dataDecisions, 
                         targetVariable = 'demand', 

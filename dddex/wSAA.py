@@ -10,13 +10,14 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 
-from .basePredictor import BasePredictor, restructureWeightsDataList
+from .baseClasses import BaseWeightsBasedEstimator
+from .utils import restructureWeightsDataList
 
 # %% auto 0
 __all__ = ['RandomForestWSAA', 'SAA']
 
-# %% ../nbs/02_wSAA.ipynb 7
-class RandomForestWSAA(RandomForestRegressor, BasePredictor):
+# %% ../nbs/02_wSAA.ipynb 9
+class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
     
     def fit(self, X, y):
 
@@ -68,8 +69,8 @@ class RandomForestWSAA(RandomForestRegressor, BasePredictor):
         return weightsDataList
 
 
-# %% ../nbs/02_wSAA.ipynb 12
-class SAA(BasePredictor):
+# %% ../nbs/02_wSAA.ipynb 14
+class SAA(BaseWeightsBasedEstimator):
     """SAA is a featureless approach that assumes the density of the target variable is given
     by assigning equal probability to each historical observation of said target variable."""
     
