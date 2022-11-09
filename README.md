@@ -66,7 +66,6 @@ from dddex.loadData import loadDataYaz
 
 ``` python
 dataYaz, XTrain, yTrain, XTest, yTest = loadDataYaz(testDays = 28, returnXY = True)
-
 LGBM = LGBMRegressor(n_jobs = 1)
 ```
 
@@ -108,7 +107,6 @@ simply run the `getWeights` method.
 ``` python
 conditionalDensities = LSKDEx.getWeights(X = XTest,
                                          outputType = 'summarized')
-
 conditionalDensities[0]
 ```
 
@@ -151,10 +149,9 @@ sample. Below, we can see that our model predicts the demand of the
 first sample to be lower or equal than 0.16 with a probability of 99%.
 
 ``` python
-cumDistributions = LSKDEx.getWeights(X = XTest,
-                                     outputType = 'cumulativeDistributionSummarized')
-
-cumDistributions[0]
+cumulativeDistributions = LSKDEx.getWeights(X = XTest,
+                                            outputType = 'cumulativeDistributionSummarized')
+cumulativeDistributions[0]
 ```
 
     (array([0.49, 0.5 , 0.71, 0.72, 0.88, 0.95, 0.99, 1.  ]),
@@ -355,94 +352,10 @@ the results is given via `cv_results`, which depicts the average results
 over all cross-validation folds:
 
 ``` python
-CV.cv_results
+CV.cv_results.to_markdown()
 ```
 
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>0.01</th>
-      <th>0.25</th>
-      <th>0.50</th>
-      <th>0.75</th>
-      <th>0.99</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>10</th>
-      <td>4.820177</td>
-      <td>0.882168</td>
-      <td>0.833527</td>
-      <td>0.862054</td>
-      <td>3.331159</td>
-    </tr>
-    <tr>
-      <th>30</th>
-      <td>2.706025</td>
-      <td>0.867827</td>
-      <td>0.814407</td>
-      <td>0.842285</td>
-      <td>2.063731</td>
-    </tr>
-    <tr>
-      <th>50</th>
-      <td>2.259134</td>
-      <td>0.858561</td>
-      <td>0.811041</td>
-      <td>0.836977</td>
-      <td>1.671270</td>
-    </tr>
-    <tr>
-      <th>100</th>
-      <td>1.651906</td>
-      <td>0.857026</td>
-      <td>0.803632</td>
-      <td>0.835323</td>
-      <td>1.810026</td>
-    </tr>
-    <tr>
-      <th>200</th>
-      <td>1.769196</td>
-      <td>0.865253</td>
-      <td>0.799966</td>
-      <td>0.829241</td>
-      <td>1.614652</td>
-    </tr>
-    <tr>
-      <th>400</th>
-      <td>1.641833</td>
-      <td>0.860281</td>
-      <td>0.812806</td>
-      <td>0.837641</td>
-      <td>1.575337</td>
-    </tr>
-    <tr>
-      <th>1000</th>
-      <td>1.546408</td>
-      <td>0.869606</td>
-      <td>0.854369</td>
-      <td>0.880650</td>
-      <td>1.526438</td>
-    </tr>
-  </tbody>
-</table>
-</div>
+    '|      |    0.01 |     0.25 |      0.5 |     0.75 |    0.99 |\n|-----:|--------:|---------:|---------:|---------:|--------:|\n|   10 | 4.82018 | 0.882168 | 0.833527 | 0.862054 | 3.33116 |\n|   30 | 2.70603 | 0.867827 | 0.814407 | 0.842285 | 2.06373 |\n|   50 | 2.25913 | 0.858561 | 0.811041 | 0.836977 | 1.67127 |\n|  100 | 1.65191 | 0.857026 | 0.803632 | 0.835323 | 1.81003 |\n|  200 | 1.7692  | 0.865253 | 0.799966 | 0.829241 | 1.61465 |\n|  400 | 1.64183 | 0.860281 | 0.812806 | 0.837641 | 1.57534 |\n| 1000 | 1.54641 | 0.869606 | 0.854369 | 0.88065  | 1.52644 |'
 
 The attentive reader will certainly notice that values greater than 1
 imply that the respective model performed worse than SAA. This is, of
@@ -614,7 +527,6 @@ The output is the same as before.
 ``` python
 conditionalDensities = RF.getWeights(X = XTest,
                                      outputType = 'summarized')
-
 conditionalDensities[0]
 ```
 
