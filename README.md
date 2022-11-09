@@ -129,23 +129,23 @@ output the conditional density estimations in various different forms.
 All in all, there are currently 5 output types specifying how the output
 for each sample looks like:
 
-- *all*: An array with the same length as the number of training
+- **all**: An array with the same length as the number of training
   samples. Each entry represents the probability of each training
   sample.
-- *onlyPositiveWeights*: A tuple. The first element of the tuple
+- **onlyPositiveWeights**: A tuple. The first element of the tuple
   represents the probabilities and the second one the indices of the
   corresponding training sample. Only probalities greater than zero are
   returned. Note: This is the most memory and computationally efficient
   output type.
-- *summarized*: A tuple. The first element of the tuple represents the
+- **summarized**: A tuple. The first element of the tuple represents the
   probabilities and the second one the corresponding value of `yTrain`.
   The probabilities corresponding to identical values of `yTrain` are
   aggregated.
-- *cumulativeDistribution*: A tuple. The first element of the tuple
+- **cumulativeDistribution**: A tuple. The first element of the tuple
   represents the probabilities and the second one the corresponding
   value of `yTrain`.
-- *cumulativeDistributionSummarized*: A tuple. The first element of the
-  tuple represents the probabilities and the second one the
+- **cumulativeDistributionSummarized**: A tuple. The first element of
+  the tuple represents the probabilities and the second one the
   corresponding value of `yTrain`. The probabilities corresponding to
   identical values of `yTrain` are aggregated.
 
@@ -174,15 +174,6 @@ predRes = LSKDEx.predict(X = XTest,
                          probs = [0.1, 0.5, 0.75, 0.99])
 # print(predRes.iloc[0:6, :].to_markdown())
 ```
-
-    |    |       0.1 |       0.5 |   0.75 |   0.99 |
-    |---:|----------:|----------:|-------:|-------:|
-    |  0 | 0         | 0.0107527 |   0.08 |   0.16 |
-    |  1 | 0         | 0.08      |   0.12 |   0.2  |
-    |  2 | 0.04      | 0.0967742 |   0.12 |   0.24 |
-    |  3 | 0.056338  | 0.12      |   0.16 |   0.28 |
-    |  4 | 0.04      | 0.0967742 |   0.12 |   0.24 |
-    |  5 | 0.0666667 | 0.16      |   0.2  |   0.32 |
 
 ## How to tune binSize parameter of LevelSetKDEx
 
@@ -268,13 +259,6 @@ over all cross-validation folds:
 # print(CV.cv_results.to_markdown())
 ```
 
-    |      |    0.01 |     0.25 |      0.5 |     0.75 |    0.99 |
-    |-----:|--------:|---------:|---------:|---------:|--------:|
-    |   20 | 3.23956 | 0.849528 | 0.808262 | 0.854069 | 2.46195 |
-    |  100 | 1.65191 | 0.857026 | 0.803632 | 0.835323 | 1.81003 |
-    |  400 | 1.64183 | 0.860281 | 0.812806 | 0.837641 | 1.57534 |
-    | 1000 | 1.54641 | 0.869606 | 0.854369 | 0.88065  | 1.52644 |
-
 The attentive reader will certainly notice that values greater than 1
 imply that the respective model performed worse than SAA. This is, of
 course, simply due to the fact, that we didn’t tune the hyperparameters
@@ -323,15 +307,6 @@ predRes = LSKDEx_best99.predict(X = XTest,
 # print(predRes.iloc[0:6, ].to_markdown())
 ```
 
-    |    |   0.99 |
-    |---:|-------:|
-    |  0 |   0.32 |
-    |  1 |   0.32 |
-    |  2 |   0.32 |
-    |  3 |   0.32 |
-    |  4 |   0.32 |
-    |  5 |   0.32 |
-
 ## Benchmarks: Random Forest wSAA
 
 The `dddex` package also contains useful non-parametric benchmark models
@@ -379,9 +354,9 @@ conditionalDensities = RF.getWeights(X = XTest,
 conditionalDensities[0]
 ```
 
-    (array([0.06360256, 0.20768407, 0.22909432, 0.12965751, 0.18917857,
-            0.12608059, 0.04345238, 0.005     , 0.00291667, 0.00333333]),
-     array([0.  , 0.04, 0.08, 0.12, 0.16, 0.2 , 0.24, 0.28, 0.32, 0.44]))
+    (array([0.15980322, 0.14046218, 0.30884314, 0.12666947, 0.13120728,
+            0.08066457, 0.0460049 , 0.00366667, 0.00267857]),
+     array([0.  , 0.04, 0.08, 0.12, 0.16, 0.2 , 0.24, 0.28, 0.32]))
 
 ``` python
 predRes = RF.predict(X = XTest,
@@ -390,15 +365,6 @@ predRes = RF.predict(X = XTest,
 # print(predRes.iloc[0:6, :].to_markdown())
 ```
 
-    |    |   0.01 |   0.5 |   0.99 |
-    |---:|-------:|------:|-------:|
-    |  0 |   0    |  0.08 |   0.28 |
-    |  1 |   0    |  0.12 |   0.28 |
-    |  2 |   0    |  0.12 |   0.28 |
-    |  3 |   0    |  0.16 |   0.32 |
-    |  4 |   0    |  0.12 |   0.32 |
-    |  5 |   0.04 |  0.2  |   0.4  |
-
 The original `predict` method of the `RandomForestRegressor` has been
 renamed to `pointPredict`:
 
@@ -406,4 +372,5 @@ renamed to `pointPredict`:
 RF.pointPredict(X = XTest)[0:6]
 ```
 
-    array([0.1188, 0.1272, 0.13  , 0.1456, 0.1636, 0.194 ])
+    array([0.096     , 0.1196    , 0.1352    , 0.1368    , 0.1404    ,
+           0.18776098])
