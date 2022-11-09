@@ -70,14 +70,16 @@ LGBM = LGBMRegressor(n_jobs = 1)
 ```
 
 There are three parameters for
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex): 1.
-**estimator**: A point forecasting model that must have a *.predict*
-method. 2. **binSize**: The amount of training samples considered to
-compute the conditional densities (for more details, see *To be
-written*). 3. **weightsByDistance**: If *False*, all considered training
-samples are weighted equally. If *True*, training samples are weighted
-by the inverse of the distance of their respective point forecast to the
-point forecast of the test sample at hand.
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex):
+
+- **estimator**: A point forecasting model that must have a *.predict*
+  method.
+- **binSize**: The amount of training samples considered to compute the
+  conditional densities (for more details, see *To be written*).
+- **weightsByDistance**: If *False*, all considered training samples are
+  weighted equally. If *True*, training samples are weighted by the
+  inverse of the distance of their respective point forecast to the
+  point forecast of the test sample at hand.
 
 ``` python
 LSKDEx = LevelSetKDEx(estimator = LGBM, 
@@ -170,7 +172,7 @@ The parameter *probs* specifies the quantiles we want to predict.
 predRes = LSKDEx.predict(X = XTest,
                          outputAsDf = True, 
                          probs = [0.1, 0.5, 0.75, 0.99])
-print(predRes.iloc[0:6, :].to_markdown())
+# print(predRes.iloc[0:6, :].to_markdown())
 ```
 
     |    |       0.1 |       0.5 |   0.75 |   0.99 |
@@ -192,23 +194,22 @@ cross-validation classes of Scikit-Learn. As such, at first
 [`binSizeCV`](https://kaiguender.github.io/dddex/levelsetkdex.html#binsizecv)is
 initialized with all the settings for the cross-validation.
 
-1.  **estimatorLSx**: Either an object of class
-    [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
-    or
-    [`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_knn)
-2.  **cvFolds**: An iterable yielding (train, test) splits as arrays of
-    indices
-3.  **binSizeGrid**: The candidate values of *binSize* to evaluate
-4.  **probs**: The probabilities for which quantiles are computed and
-    evaluated.
-5.  **refitPerProb**: If True, for ever probability a fitted copy of
-    *estimatorLSx* with the best binSize for the respective p-quantile
-    is stored in the attribute *bestEstimatorLSx*. If False, only a
-    single fitted copy of *estimatorLSx* is stored with the binSize that
-    yielded the lowest average aggregated costs over all quantile
-    estimations.
-6.  **n_jobs**: How many cross-validation split results to compute in
-    parallel.
+- **estimatorLSx**: Either an object of class
+  [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+  or
+  [`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_knn)
+- **cvFolds**: An iterable yielding (train, test) splits as arrays of
+  indices
+- **binSizeGrid**: The candidate values of *binSize* to evaluate
+- **probs**: The probabilities for which quantiles are computed and
+  evaluated.
+- **refitPerProb**: If True, for ever probability a fitted copy of
+  *estimatorLSx* with the best binSize for the respective p-quantile is
+  stored in the attribute *bestEstimatorLSx*. If False, only a single
+  fitted copy of *estimatorLSx* is stored with the binSize that yielded
+  the lowest average aggregated costs over all quantile estimations.
+- **n_jobs**: How many cross-validation split results to compute in
+  parallel.
 
 After specifying the settings, `fit` has to be called to compute the
 results of the cross validation. The performance of every *binSize*
@@ -264,7 +265,7 @@ the results is given via `cv_results`, which depicts the average results
 over all cross-validation folds:
 
 ``` python
-print(CV.cv_results.to_markdown())
+# print(CV.cv_results.to_markdown())
 ```
 
     |      |    0.01 |     0.25 |      0.5 |     0.75 |    0.99 |
@@ -319,7 +320,7 @@ keys are the probabilities specified via the paramater *probs*.
 LSKDEx_best99 = CV.bestEstimatorLSx[0.99]
 predRes = LSKDEx_best99.predict(X = XTest,
                                 probs = 0.99)
-print(predRes.iloc[0:6, ].to_markdown())
+# print(predRes.iloc[0:6, ].to_markdown())
 ```
 
     |    |   0.99 |
@@ -386,7 +387,7 @@ conditionalDensities[0]
 predRes = RF.predict(X = XTest,
                      probs = [0.01, 0.5, 0.99],
                      outputAsDf = True)
-print(predRes.iloc[0:6, :].to_markdown())
+# print(predRes.iloc[0:6, :].to_markdown())
 ```
 
     |    |   0.01 |   0.5 |   0.99 |
