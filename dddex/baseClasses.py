@@ -60,8 +60,8 @@ class BaseWeightsBasedEstimator(BaseEstimator):
 
             for prob in probs:
                 
-                # A tolerance term of 10^-8 is substracted from prob to account for rounding errors due to numerical precision.
-                quantileIndex = np.where(probsDistributionFunction >= prob - 10**-8)[0][0]
+                # A tolerance term of 10^-8 is substracted from prob to account for rounding errors due to numerical precision. - 10**-8
+                quantileIndex = np.where(probsDistributionFunction >= prob )[0][0]
                     
                 quantile = yDistributionFunction[quantileIndex]
                 quantilesDict[prob].append(quantile)
