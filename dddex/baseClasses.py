@@ -41,6 +41,15 @@ class BaseWeightsBasedEstimator(BaseEstimator):
                 scalingList = None, 
                 ):
         
+        # Checks
+        if isinstance(probs, float) or probs == 0 or probs == 1:
+            probs = [probs]
+            
+        if any([prob > 1 or prob < 0 for prob in probs]):
+            raise ValueError("The values specified via 'probs' must lie between 0 and 1!")
+        
+        #---
+                             
         distributionDataList = self.getWeights(X = X,
                                                outputType = 'cumulativeDistribution',
                                                scalingList = scalingList)
@@ -51,7 +60,8 @@ class BaseWeightsBasedEstimator(BaseEstimator):
 
             for prob in probs:
                 
-                quantileIndex = np.where(probsDistributionFunction >= prob)[0][0]
+                # A tolerance term of 10^-8 is substracted from prob to account for rounding errors due to numerical precision.
+                quantileIndex = np.where(probsDistributionFunction >= prob - 10**-8)[0][0]
                     
                 quantile = yDistributionFunction[quantileIndex]
                 quantilesDict[prob].append(quantile)
