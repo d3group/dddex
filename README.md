@@ -162,117 +162,20 @@ We can also compute estimations of quantiles using the `predict` method.
 The parameter *probs* specifies the quantiles we want to predict.
 
 ``` python
-LSKDEx.predict(X = XTest,
-               outputAsDf = True, 
-               probs = [0.1, 0.5, 0.75, 0.99])
+predRes = LSKDEx.predict(X = XTest,
+                         outputAsDf = True, 
+                         probs = [0.1, 0.5, 0.75, 0.99])
+print(predRes.iloc[0:6, :].to_markdown())
 ```
 
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>0.10</th>
-      <th>0.50</th>
-      <th>0.75</th>
-      <th>0.99</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>0.000000</td>
-      <td>0.010753</td>
-      <td>0.080000</td>
-      <td>0.160000</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>0.000000</td>
-      <td>0.080000</td>
-      <td>0.120000</td>
-      <td>0.200000</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>0.040000</td>
-      <td>0.096774</td>
-      <td>0.120000</td>
-      <td>0.240000</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>0.056338</td>
-      <td>0.120000</td>
-      <td>0.160000</td>
-      <td>0.280000</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>0.040000</td>
-      <td>0.096774</td>
-      <td>0.120000</td>
-      <td>0.240000</td>
-    </tr>
-    <tr>
-      <th>...</th>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-    </tr>
-    <tr>
-      <th>191</th>
-      <td>0.182796</td>
-      <td>0.247312</td>
-      <td>0.300000</td>
-      <td>0.411765</td>
-    </tr>
-    <tr>
-      <th>192</th>
-      <td>0.182796</td>
-      <td>0.247312</td>
-      <td>0.300000</td>
-      <td>0.411765</td>
-    </tr>
-    <tr>
-      <th>193</th>
-      <td>0.166667</td>
-      <td>0.233333</td>
-      <td>0.268293</td>
-      <td>0.352941</td>
-    </tr>
-    <tr>
-      <th>194</th>
-      <td>0.233333</td>
-      <td>0.333333</td>
-      <td>0.400000</td>
-      <td>0.588235</td>
-    </tr>
-    <tr>
-      <th>195</th>
-      <td>0.397727</td>
-      <td>0.478873</td>
-      <td>0.536585</td>
-      <td>0.733333</td>
-    </tr>
-  </tbody>
-</table>
-<p>196 rows × 4 columns</p>
-</div>
+    |    |       0.1 |       0.5 |   0.75 |   0.99 |
+    |---:|----------:|----------:|-------:|-------:|
+    |  0 | 0         | 0.0107527 |   0.08 |   0.16 |
+    |  1 | 0         | 0.08      |   0.12 |   0.2  |
+    |  2 | 0.04      | 0.0967742 |   0.12 |   0.24 |
+    |  3 | 0.056338  | 0.12      |   0.16 |   0.28 |
+    |  4 | 0.04      | 0.0967742 |   0.12 |   0.24 |
+    |  5 | 0.0666667 | 0.16      |   0.2  |   0.32 |
 
 ## How to tune binSize parameter of LevelSetKDEx
 
@@ -321,7 +224,7 @@ LSKDEx = LevelSetKDEx(estimator = LGBM,
 
 CV = binSizeCV(estimatorLSx = LSKDEx,
                cvFolds = cvFolds,
-               binSizeGrid = [10, 30, 50, 100, 200, 400, 1000],
+               binSizeGrid = [10, 30, 100, 400, 1000],
                probs = [0.01, 0.25, 0.5, 0.75, 0.99],
                refitPerProb = True,
                n_jobs = 3)
@@ -352,10 +255,18 @@ the results is given via `cv_results`, which depicts the average results
 over all cross-validation folds:
 
 ``` python
-CV.cv_results.to_markdown()
+print(CV.cv_results.to_markdown())
 ```
 
-    '|      |    0.01 |     0.25 |      0.5 |     0.75 |    0.99 |\n|-----:|--------:|---------:|---------:|---------:|--------:|\n|   10 | 4.82018 | 0.882168 | 0.833527 | 0.862054 | 3.33116 |\n|   30 | 2.70603 | 0.867827 | 0.814407 | 0.842285 | 2.06373 |\n|   50 | 2.25913 | 0.858561 | 0.811041 | 0.836977 | 1.67127 |\n|  100 | 1.65191 | 0.857026 | 0.803632 | 0.835323 | 1.81003 |\n|  200 | 1.7692  | 0.865253 | 0.799966 | 0.829241 | 1.61465 |\n|  400 | 1.64183 | 0.860281 | 0.812806 | 0.837641 | 1.57534 |\n| 1000 | 1.54641 | 0.869606 | 0.854369 | 0.88065  | 1.52644 |'
+    |      |    0.01 |     0.25 |      0.5 |     0.75 |    0.99 |
+    |-----:|--------:|---------:|---------:|---------:|--------:|
+    |   10 | 4.82018 | 0.882168 | 0.833527 | 0.862054 | 3.33116 |
+    |   30 | 2.70603 | 0.867827 | 0.814407 | 0.842285 | 2.06373 |
+    |   50 | 2.25913 | 0.858561 | 0.811041 | 0.836977 | 1.67127 |
+    |  100 | 1.65191 | 0.857026 | 0.803632 | 0.835323 | 1.81003 |
+    |  200 | 1.7692  | 0.865253 | 0.799966 | 0.829241 | 1.61465 |
+    |  400 | 1.64183 | 0.860281 | 0.812806 | 0.837641 | 1.57534 |
+    | 1000 | 1.54641 | 0.869606 | 0.854369 | 0.88065  | 1.52644 |
 
 The attentive reader will certainly notice that values greater than 1
 imply that the respective model performed worse than SAA. This is, of
@@ -370,7 +281,8 @@ underlying point predictor and the constructed
 [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
 model go hand in hand.
 
-We can also access the results for every fold separately:
+We can also access the results for every fold separately via
+`cv_results_raw`, which is a list with one entry per fold:
 
 ``` python
 CV.cv_results_raw
@@ -408,80 +320,19 @@ keys are the probabilities specified via the paramater *probs*.
 
 ``` python
 LSKDEx_best99 = CV.bestEstimatorLSx[0.99]
-LSKDEx_best99.predict(X = XTest,
-                      probs = 0.99)
+predRes = LSKDEx_best99.predict(X = XTest,
+                                probs = 0.99)
+print(predRes.iloc[0:6, ].to_markdown())
 ```
 
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>0.99</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>0.320000</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>0.320000</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>0.320000</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>0.320000</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>0.320000</td>
-    </tr>
-    <tr>
-      <th>...</th>
-      <td>...</td>
-    </tr>
-    <tr>
-      <th>191</th>
-      <td>0.431818</td>
-    </tr>
-    <tr>
-      <th>192</th>
-      <td>0.431818</td>
-    </tr>
-    <tr>
-      <th>193</th>
-      <td>0.366197</td>
-    </tr>
-    <tr>
-      <th>194</th>
-      <td>0.863636</td>
-    </tr>
-    <tr>
-      <th>195</th>
-      <td>0.863636</td>
-    </tr>
-  </tbody>
-</table>
-<p>196 rows × 1 columns</p>
-</div>
+    |    |   0.99 |
+    |---:|-------:|
+    |  0 |   0.32 |
+    |  1 |   0.32 |
+    |  2 |   0.32 |
+    |  3 |   0.32 |
+    |  4 |   0.32 |
+    |  5 |   0.32 |
 
 ## Benchmarks: Random Forest wSAA
 
@@ -535,110 +386,25 @@ conditionalDensities[0]
      array([0.  , 0.04, 0.08, 0.12, 0.16, 0.2 , 0.24, 0.28, 0.32, 0.44]))
 
 ``` python
-RF.predict(X = XTest,
-           outputAsDf = True)
+predRes = RF.predict(X = XTest,
+                     outputAsDf = True)
+print(predRes.iloc[0:6, :].to_markdown())
 ```
 
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>0.1</th>
-      <th>0.5</th>
-      <th>0.9</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>0.040000</td>
-      <td>0.080000</td>
-      <td>0.200000</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>0.040000</td>
-      <td>0.120000</td>
-      <td>0.240000</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>0.040000</td>
-      <td>0.120000</td>
-      <td>0.240000</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>0.040000</td>
-      <td>0.160000</td>
-      <td>0.240000</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>0.040000</td>
-      <td>0.120000</td>
-      <td>0.280000</td>
-    </tr>
-    <tr>
-      <th>...</th>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-    </tr>
-    <tr>
-      <th>191</th>
-      <td>0.058824</td>
-      <td>0.207317</td>
-      <td>0.352941</td>
-    </tr>
-    <tr>
-      <th>192</th>
-      <td>0.060976</td>
-      <td>0.235294</td>
-      <td>0.353659</td>
-    </tr>
-    <tr>
-      <th>193</th>
-      <td>0.109756</td>
-      <td>0.256098</td>
-      <td>0.400000</td>
-    </tr>
-    <tr>
-      <th>194</th>
-      <td>0.200000</td>
-      <td>0.366667</td>
-      <td>0.507042</td>
-    </tr>
-    <tr>
-      <th>195</th>
-      <td>0.390244</td>
-      <td>0.559140</td>
-      <td>0.741935</td>
-    </tr>
-  </tbody>
-</table>
-<p>196 rows × 3 columns</p>
-</div>
+    |    |   0.1 |   0.5 |   0.9 |
+    |---:|------:|------:|------:|
+    |  0 |  0.04 |  0.08 |  0.2  |
+    |  1 |  0.04 |  0.12 |  0.24 |
+    |  2 |  0.04 |  0.12 |  0.24 |
+    |  3 |  0.04 |  0.16 |  0.24 |
+    |  4 |  0.04 |  0.12 |  0.28 |
+    |  5 |  0.08 |  0.2  |  0.32 |
 
 The original `predict` method of the `RandomForestRegressor` has been
 renamed to `pointPredict`:
 
 ``` python
-RF.pointPredict(X = XTest)[0:10]
+RF.pointPredict(X = XTest)[0:6]
 ```
 
     array([0.1024    , 0.1328    , 0.1392    , 0.1524    , 0.1472    ,
