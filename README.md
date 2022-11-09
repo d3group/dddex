@@ -125,22 +125,27 @@ probability of 49%.
 Like the input argument *outputType* of `getWeights` suggests, we can
 output the conditional density estimations in various different forms.
 All in all, there are currently 5 output types specifying how the output
-for each sample looks like: 1. *all*: An array with the same length as
-the number of training samples. Each entry represents the probability of
-each training sample. 2. *onlyPositiveWeights*: A tuple. The first
-element of the tuple represents the probabilities and the second one the
-indices of the corresponding training sample. Only probalities greater
-than zero are returned. Note: This is the most memory and
-computationally efficient output type. 3. *summarized*: A tuple. The
-first element of the tuple represents the probabilities and the second
-one the corresponding value of `yTrain`. The probabilities corresponding
-to identical values of `yTrain` are aggregated. 4.
-*cumulativeDistribution*: A tuple. The first element of the tuple
-represents the probabilities and the second one the corresponding value
-of `yTrain`. 5. *cumulativeDistributionSummarized*: A tuple. The first
-element of the tuple represents the probabilities and the second one the
-corresponding value of `yTrain`. The probabilities corresponding to
-identical values of `yTrain` are aggregated.
+for each sample looks like:
+
+- *all*: An array with the same length as the number of training
+  samples. Each entry represents the probability of each training
+  sample.
+- *onlyPositiveWeights*: A tuple. The first element of the tuple
+  represents the probabilities and the second one the indices of the
+  corresponding training sample. Only probalities greater than zero are
+  returned. Note: This is the most memory and computationally efficient
+  output type.
+- *summarized*: A tuple. The first element of the tuple represents the
+  probabilities and the second one the corresponding value of `yTrain`.
+  The probabilities corresponding to identical values of `yTrain` are
+  aggregated.
+- *cumulativeDistribution*: A tuple. The first element of the tuple
+  represents the probabilities and the second one the corresponding
+  value of `yTrain`.
+- *cumulativeDistributionSummarized*: A tuple. The first element of the
+  tuple represents the probabilities and the second one the
+  corresponding value of `yTrain`. The probabilities corresponding to
+  identical values of `yTrain` are aggregated.
 
 For example, by setting
 `outputType = 'cumulativeDistributionSummarized'` we can compute an
@@ -185,21 +190,25 @@ that tunes the important *binSize* parameter via cross-validation in an
 efficient manner. The class is designed in a very similar fashion to the
 cross-validation classes of Scikit-Learn. As such, at first
 [`binSizeCV`](https://kaiguender.github.io/dddex/levelsetkdex.html#binsizecv)is
-initialized with all the settings for the cross-validation: 1.
-**estimatorLSx**: Either an object of class
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
-or
-[`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_knn)
-2. **cvFolds**: An iterable yielding (train, test) splits as arrays of
-indices 3. **binSizeGrid**: The candidate values of *binSize* to
-evaluate 4. **probs**: The probabilities for which quantiles are
-computed and evaluated. 4. **refitPerProb**: If True, for ever
-probability a fitted copy of *estimatorLSx* with the best binSize for
-the respective p-quantile is stored in the attribute *bestEstimatorLSx*.
-If False, only a single fitted copy of *estimatorLSx* is stored with the
-binSize that yielded the lowest average aggregated costs over all
-quantile estimations. 5. **n_jobs**: How many cross-validation split
-results to compute in parallel.
+initialized with all the settings for the cross-validation.
+
+1.  **estimatorLSx**: Either an object of class
+    [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+    or
+    [`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_knn)
+2.  **cvFolds**: An iterable yielding (train, test) splits as arrays of
+    indices
+3.  **binSizeGrid**: The candidate values of *binSize* to evaluate
+4.  **probs**: The probabilities for which quantiles are computed and
+    evaluated.
+5.  **refitPerProb**: If True, for ever probability a fitted copy of
+    *estimatorLSx* with the best binSize for the respective p-quantile
+    is stored in the attribute *bestEstimatorLSx*. If False, only a
+    single fitted copy of *estimatorLSx* is stored with the binSize that
+    yielded the lowest average aggregated costs over all quantile
+    estimations.
+6.  **n_jobs**: How many cross-validation split results to compute in
+    parallel.
 
 After specifying the settings, `fit` has to be called to compute the
 results of the cross validation. The performance of every *binSize*
@@ -369,9 +378,9 @@ conditionalDensities = RF.getWeights(X = XTest,
 conditionalDensities[0]
 ```
 
-    (array([0.06798521, 0.2027031 , 0.29702597, 0.14729113, 0.15246248,
-            0.08970635, 0.03104798, 0.00844444, 0.00333333]),
-     array([0.  , 0.04, 0.08, 0.12, 0.16, 0.2 , 0.24, 0.28, 0.36]))
+    (array([0.06360256, 0.20768407, 0.22909432, 0.12965751, 0.18917857,
+            0.12608059, 0.04345238, 0.005     , 0.00291667, 0.00333333]),
+     array([0.  , 0.04, 0.08, 0.12, 0.16, 0.2 , 0.24, 0.28, 0.32, 0.44]))
 
 ``` python
 predRes = RF.predict(X = XTest,
@@ -382,12 +391,12 @@ print(predRes.iloc[0:6, :].to_markdown())
 
     |    |   0.01 |   0.5 |   0.99 |
     |---:|-------:|------:|-------:|
-    |  0 |      0 |  0.08 |   0.28 |
-    |  1 |      0 |  0.12 |   0.32 |
-    |  2 |      0 |  0.12 |   0.28 |
-    |  3 |      0 |  0.16 |   0.32 |
-    |  4 |      0 |  0.12 |   0.32 |
-    |  5 |      0 |  0.2  |   0.4  |
+    |  0 |   0    |  0.08 |   0.28 |
+    |  1 |   0    |  0.12 |   0.28 |
+    |  2 |   0    |  0.12 |   0.28 |
+    |  3 |   0    |  0.16 |   0.32 |
+    |  4 |   0    |  0.12 |   0.32 |
+    |  5 |   0.04 |  0.2  |   0.4  |
 
 The original `predict` method of the `RandomForestRegressor` has been
 renamed to `pointPredict`:
@@ -396,4 +405,4 @@ renamed to `pointPredict`:
 RF.pointPredict(X = XTest)[0:6]
 ```
 
-    array([0.1088, 0.13  , 0.1404, 0.1516, 0.1608, 0.2024])
+    array([0.1188, 0.1272, 0.13  , 0.1456, 0.1636, 0.194 ])
