@@ -4,6 +4,6 @@ project:
 website:
   title: "dddex"
   site-url: "https://kaiguender.github.io/dddex"
-  description: "To be added."
+  description: "The package 'data-driven density estimation x' (dddex) turns any standard point forecasting model into an estimator of the underlying conditional density"
   repo-branch: main
   repo-url: "https://github.com/kaiguender/dddex"
