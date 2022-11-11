@@ -173,7 +173,8 @@ def add_lag_features(X, y, column_id, column_sort, feature_dict, time_windows):
 
     df = pd.concat([X, y],axis = 1)
     df = df.dropna()
-    df = df.reset_index(drop = False, inplace = False, names = ['id', 'time']).drop(['time'], axis = 1, inplace = False)
+    df.index.names = names = ['id', 'time']
+    df = df.reset_index(drop = False, inplace = False).drop(['time'], axis = 1, inplace = False)
 
     y = df[y_column_names]
     X = df.drop(y_column_names, axis = 1)
