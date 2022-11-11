@@ -22,7 +22,7 @@ from .wSAA import SampleAverageApproximation
 from .utils import restructureWeightsDataList
 
 # %% auto 0
-__all__ = ['BaseLSx', 'LevelSetKDEx', 'generateBins', 'LevelSetKDEx_kNN', 'LevelSetKDEx_nn', 'binSizeCV', 'scoresForFold',
+__all__ = ['BaseLSx', 'LevelSetKDEx', 'generateBins', 'LevelSetKDEx_kNN', 'LevelSetKDEx_NN_new', 'binSizeCV', 'scoresForFold',
            'getCostRatio']
 
 # %% ../nbs/01_levelSetKDEx.ipynb 7
@@ -439,7 +439,7 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
       
 
 # %% ../nbs/01_levelSetKDEx.ipynb 23
-class LevelSetKDEx_nn(BaseWeightsBasedEstimator, BaseLSx):
+class LevelSetKDEx_NN_new(BaseWeightsBasedEstimator, BaseLSx):
     """
      `LevelSetKDEx_kNN` turns any point predictor that has a .predict-method 
     into an estimator of the condititional density of the underlying distribution.
@@ -549,15 +549,31 @@ class LevelSetKDEx_nn(BaseWeightsBasedEstimator, BaseLSx):
         nn = self.nearestNeighborsOnPreds
 
         #---
+         
+        yTrainPred_reshaped = np.reshape(self.yTrainPred, newshape = (len(self.yTrainPred), 1))
+
+        distancesMatrixTrain, neighborsMatrixTrain = nn.kneighbors(X = yTrainPred_reshaped, 
+                                                                   n_neighbors = self.binSize + 1)
+        
+        neighborsListTrain = list(neighborsMatrixTrain[:, 0:self.binSize])
+        distanceCheckTrain = np.where(distancesMatrixTrain[:, self.binSize - 1] == distancesMatrixTrain[:, self.binSize])
+        indicesToModTrain = distanceCheckTrain[0]
+
+        for index in indicesToModTrain:
+            distanceExtremePoint = np.absolute(self.yTrainPred[index] - self.yTrainPred[neighborsMatrixTrain[index, self.binSize-1]])
+
+            neighborsByRadius = nn.radius_neighbors(X = yTrainPred_reshaped[index:index + 1], 
+                                                    radius = distanceExtremePoint, return_distance = False)[0]
+            neighborsListTrain[index] = neighborsByRadius
+        
+        #---
 
         yPred = self.estimator.predict(X)   
         yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
 
         distancesMatrix, neighborsMatrix = nn.kneighbors(X = yPred_reshaped, 
                                                          n_neighbors = self.binSize + 1)
-
-        #---
-
+        
         neighborsList = list(neighborsMatrix[:, 0:self.binSize])
         distanceCheck = np.where(distancesMatrix[:, self.binSize - 1] == distancesMatrix[:, self.binSize])
         indicesToMod = distanceCheck[0]
@@ -571,44 +587,29 @@ class LevelSetKDEx_nn(BaseWeightsBasedEstimator, BaseLSx):
 
         #---
         
-        if self.weightsByDistance:
-            binSizesReal = [len(neighbors) for neighbors in neighborsList]
-            binSizeMax = max(binSizesReal)
+        weightsDataList = list()
+        
+        for neighbors in neighborsList:
             
-            distancesMatrix, neighborsMatrix = nn.kneighbors(X = yPred_reshaped, 
-                                                             n_neighbors = binSizeMax)
+            weights = list()
+            indicesPosWeight = list()
             
-            weightsDataList = list()
-            
-            for i in range(X.shape[0]):
-                distances = distancesMatrix[i, 0:binSizesReal[i]]
-                distancesCloseZero = np.isclose(distances, 0)
+            for i in range(len(neighborsListTrain)):
+                weight = 2 * len(set(neighbors) & set(neighborsListTrain[i])) / (len(neighbors) + len(neighborsListTrain[i]))
                 
-                if np.any(distancesCloseZero):
-                    indicesCloseZero = neighborsMatrix[i, np.where(distancesCloseZero)[0]]
-                    weightsDataList.append((np.repeat(1 / len(indicesCloseZero), len(indicesCloseZero)),
-                                            indicesCloseZero))
+                if weight > 0:
+                    weights.append(weight)
+                    indicesPosWeight.append(i)
+            
+            weights = np.array(weights) / sum(weights)
+            weightsDataList.append((weights, np.array(indicesPosWeight)))
+            
                     
-                else:                                 
-                    inverseDistances = 1 / distances
-
-                    weightsDataList.append((inverseDistances / inverseDistances.sum(), 
-                                            np.array(neighborsList[i])))
-            
-            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                         outputType = outputType, 
-                                                         y = self.yTrain,
-                                                         scalingList = scalingList,
-                                                         equalWeights = False)
-            
-        else:
-            weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
-
-            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                         outputType = outputType, 
-                                                         y = self.yTrain,
-                                                         scalingList = scalingList,
-                                                         equalWeights = True)
+        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                     outputType = outputType, 
+                                                     y = self.yTrain,
+                                                     scalingList = scalingList,
+                                                     equalWeights = True)
 
         return weightsDataList
       
@@ -634,8 +635,8 @@ class binSizeCV:
                  ):
         
         # CHECKS  
-        if not isinstance(estimatorLSx, (LevelSetKDEx, LevelSetKDEx_kNN)):
-            raise ValueError("'estimatorLSx' has to be a 'LevelSetKDEx'- or a 'LevelSetKDEx_kNN'-object!")               
+        if not isinstance(estimatorLSx, (LevelSetKDEx, LevelSetKDEx_kNN, LevelSetKDEx_NN_new)):
+            raise ValueError("'estimatorLSx' has to be a 'LevelSetKDEx', 'LevelSetKDEx_NN_new' or a 'LevelSetKDEx_kNN' object!")               
             
         if np.any(np.array(probs) > 1) or np.any(np.array(probs) < 0): 
             raise ValueError("probs must only contain numbers between 0 and 1!")            
@@ -671,19 +672,19 @@ def fit(self: binSizeCV,
     nSmallestTrainSample = len(self.cvFolds[0][0])
     self.binSizeGrid = [binSize for binSize in self.binSizeGrid if binSize <= nSmallestTrainSample]
     
-    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(scoresForFold)(cvFold = cvFold,
-                                                                          binSizeGrid = self.binSizeGrid,
-                                                                          probs = self.probs,
-                                                                          estimatorLSx = copy.deepcopy(self.estimatorLSx),
-                                                                          y = y,
-                                                                          X = X) for cvFold in self.cvFolds)
+    # scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(scoresForFold)(cvFold = cvFold,
+    #                                                                       binSizeGrid = self.binSizeGrid,
+    #                                                                       probs = self.probs,
+    #                                                                       estimatorLSx = copy.deepcopy(self.estimatorLSx),
+    #                                                                       y = y,
+    #                                                                       X = X) for cvFold in self.cvFolds)
     
-    # scoresPerFold = [scoresForFold(cvFold = cvFold,
-    #                                binSizeGrid = self.binSizeGrid,
-    #                                probs = self.probs,
-    #                                estimatorLSx = copy.deepcopy(self.estimatorLSx),
-    #                                y = y,
-    #                                X = X) for cvFold in self.cvFolds]
+    scoresPerFold = [scoresForFold(cvFold = cvFold,
+                                   binSizeGrid = self.binSizeGrid,
+                                   probs = self.probs,
+                                   estimatorLSx = copy.deepcopy(self.estimatorLSx),
+                                   y = y,
+                                   X = X) for cvFold in self.cvFolds]
 
     self.cv_results_raw = scoresPerFold
     meanCostsDf = sum(scoresPerFold) / len(scoresPerFold)
