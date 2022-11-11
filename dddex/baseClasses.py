@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastcore.docments import *
 from fastcore.test import *
 from fastcore.utils import *
+from fastcore.script import *
 
 from sklearn.base import BaseEstimator
 
@@ -19,27 +20,20 @@ __all__ = ['BaseWeightsBasedEstimator']
 class BaseWeightsBasedEstimator(BaseEstimator):
     """ 
     Base class that implements the 'prediction'-method for approaches based 
-    on a reweighting of the empirical distribution.
+    on a reweighting of the empirical distribution. This class is not supposed
+    to be used directly.
     """
     
-    # @abstractmethod
-    # def getWeights(self, X):
-    #     """Compute weights for every sample specified by feature matrix 'X'"""
-    #     pass
-
-    # def predict(self: BaseWeightsBasedEstimator, 
-    #                      X: np.ndarray, # Feature matrix of samples for which conditional quantiles are computed.
-    #                      probs: list | np.ndarray = [0.1, 0.5, 0.9], # Probabilities for which the estimated conditional p-quantiles are computed.
-    #                      outputAsDf: bool = False, # Output is either a dataframe with 'probs' as cols or a dict with 'probs' as keys.
-    #                      scalingList: list | np.ndarray | None = None, # List or array with same size as self.Y containing floats being multiplied with self.Y.
-    #                      ):
-    
-    def predict(self, 
-                X,
-                probs = [0.1, 0.5, 0.9], 
-                outputAsDf = True, 
-                scalingList = None, 
-                ):
+    # @call_parse
+    def predict(self : BaseWeightsBasedEstimator, 
+                X: np.ndarray, # Feature matrix for which conditional quantiles are computed.
+                probs: list, # Probabilities for which quantiles are computed.
+                outputAsDf: bool=True, # Determines output. Either a dataframe with probs as columns or a dict with probs as keys.
+                # Optional. List with length X.shape[0]. Values are multiplied to the predictions
+                # of each sample to rescale values.
+                scalingList: list=None, 
+                ): 
+        """ Predict p-quantiles based on a reweighting of the empirical distribution function."""
         
         # Checks
         if isinstance(probs, float) or probs == 0 or probs == 1:
@@ -78,4 +72,33 @@ class BaseWeightsBasedEstimator(BaseEstimator):
 
         else:
             return quantilesDict
+        
+    #---
+    
+    def getWeights(self, 
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None,
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        """
+        Computes estimated conditional density for each sample specified by `X`. The concrete structure of each element 
+        of the returned list depends on the specified value of `outputType`:
+        
+        - **all**: An array with the same length as the number of training samples. Each entry represents the probability 
+          of each training sample.
+        - **onlyPositiveWeights**: A tuple. The first element of the tuple represents the probabilities and the second 
+          one the indices of the corresponding training sample. Only probalities greater than zero are returned. 
+          Note: This is the most memory and computationally efficient output type.
+        - **summarized**: A tuple. The first element of the tuple represents the probabilities and the second one the 
+          corresponding value of `yTrain`. The probabilities corresponding to identical values of `yTrain` are aggregated.
+        - **cumDistribution**: A tuple. The first element of the tuple represents the probabilities and the second 
+          one the corresponding value of `yTrain`.
+        - **cumDistributionSummarized**: A tuple. The first element of the tuple represents the probabilities and 
+          the second one the corresponding value of `yTrain`. The probabilities corresponding to identical values of `yTrain` are aggregated.
+        """
+        pass
     

@@ -17,12 +17,12 @@ from .utils import restructureWeightsDataList
 # %% auto 0
 __all__ = ['RandomForestWSAA', 'SampleAverageApproximation']
 
-# %% ../nbs/02_wSAA.ipynb 9
+# %% ../nbs/02_wSAA.ipynb 7
 class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
     
     def fit(self, 
-            X, 
-            y,
+            X: np.ndarray, # Feature matrix
+            y: np.ndarray, # Target values
             **kwargs):
 
         super().fit(X = X, 
@@ -34,15 +34,19 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
     
     #---
     
-    def getWeights(self: RandomForestWSAA, 
-                   X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
-                   outputType: 'all' | # Specifies structure of output.
-                               'onlyPositiveWeights' | 
-                               'summarized' | 
-                               'cumulativeDistribution' | 
-                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
-                   ):
+    def getWeights(self, 
+               X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+               # Specifies structure of the returned density estimates. One of: 
+               # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+               outputType: str='onlyPositiveWeights', 
+               # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+               # density of each sample for scaling purposes.
+               scalingList: list=None, 
+               ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        
+        __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
+        
+        #---
 
         leafIndicesDf = self.apply(X)
 
@@ -76,11 +80,16 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
     
     #---
     
-    def predict(self, 
-                X,
-                probs = [0.1, 0.5, 0.9], 
-                outputAsDf = True, 
-                scalingList = None):
+    def predict(self : BaseWeightsBasedEstimator, 
+                X: np.ndarray, # Feature matrix for which conditional quantiles are computed.
+                probs: list, # Probabilities for which quantiles are computed.
+                outputAsDf: bool=True, # Determines output. Either a dataframe with probs as columns or a dict with probs as keys.
+                # Optional. List with length X.shape[0]. Values are multiplied to the predictions
+                # of each sample to rescale values.
+                scalingList: list=None, 
+                ): 
+        
+        __doc__ = BaseWeightsBasedEstimator.predict.__doc__
         
         return super(MetaEstimatorMixin, self).predict(X = X,
                                                        probs = probs, 
@@ -90,14 +99,15 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
     #---
     
     def pointPredict(self,
-                     X,
+                     X: np.ndarray, # Feature Matrix
                      **kwargs):
+        """Original `predict` method to generate point forecasts"""
         
         return super().predict(X = X,
                                **kwargs)
 
 
-# %% ../nbs/02_wSAA.ipynb 14
+# %% ../nbs/02_wSAA.ipynb 12
 class SampleAverageApproximation(BaseWeightsBasedEstimator):
     """SAA is a featureless approach that assumes the density of the target variable is given
     by assigning equal probability to each historical observation of said target variable."""
@@ -121,15 +131,19 @@ class SampleAverageApproximation(BaseWeightsBasedEstimator):
     
     #---
     
-    def getWeights(self: SampleAverageApproximation, 
-                   X: np.ndarray = None, # Feature matrix for whose rows conditional density estimates are computed.
-                   outputType: 'all' | # Specifies structure of output.
-                               'onlyPositiveWeights' | 
-                               'summarized' | 
-                               'cumulativeDistribution' | 
-                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.y containing floats being multiplied with self.y.
-                   ):
+    def getWeights(self, 
+                   X: np.ndarray=None, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None, 
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        
+        __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
+        
+        #---
 
         if X is None:
             neighborsList = [np.arange(len(self.yTrain))]

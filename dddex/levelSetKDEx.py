@@ -26,11 +26,17 @@ __all__ = ['BaseLSx', 'LevelSetKDEx', 'generateBins', 'LevelSetKDEx_kNN', 'binSi
 
 # %% ../nbs/01_levelSetKDEx.ipynb 7
 class BaseLSx:
+    """
+    Base class for the Level-Set based approaches. This class is not supposed to be used directly.
+    Use derived classes instead.
+    """
     
     def __init__(self, 
-                 estimator, # (Fitted) object with a .predict-method.
-                 binSize: int = None, # Size of the bins created to group the training samples.
-                 weightsByDistance: bool = False,
+                 estimator, # Model with a `fit` and `predict` method (implementing the scikit-learn estimator interface).
+                 binSize: int=None, # Number of training samples considered for creating weights.
+                 # Determines behaviour of method `getWeights`. If False, all weights receive the same  
+                 # value. If True, the distance of the point forecasts is taking into account.
+                 weightsByDistance: bool=False,  
                  ):
         
         if not (hasattr(estimator, 'predict') and callable(estimator.predict)):
@@ -45,30 +51,41 @@ class BaseLSx:
         
     #---
     
-    def pointPredict(self, 
-                     X):
+    def pointPredict(self: BaseLSx, 
+                     # Feature matrix for which point predictions are computed based
+                     # on the point forecasting model specified via `estimator`.
+                     X: np.ndarray 
+                     ):
         
         return self.estimator.predict(X)
     
     #---
     
-    def refitPointEstimator(self,
-                            X, 
-                            y
+    def refitPointEstimator(self: BaseLSx, 
+                            X: np.ndarray, # Input feature matrix
+                            y: np.ndarray, # Target values
                             ):
         
         setattr(self, 'estimator', self.estimator.fit(X = X, y = y))
 
-# %% ../nbs/01_levelSetKDEx.ipynb 9
+# %% ../nbs/01_levelSetKDEx.ipynb 12
 class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
     """
-    `LevelSetKDEx`
+    `LevelSetKDEx` turns any point forecasting model into an estimator of the underlying conditional density.
+    The name 'LevelSet' stems from the fact that this approach interprets the values of the point forecasts
+    as a similarity measure between samples. The point forecasts of the training samples are sorted and 
+    recursively assigned to a bin until the size of the current bin reaches `binSize` many samples. Then
+    a new bin is created and so on. For a new test sample we check into which bin its point prediction
+    would have fallen and interpret the training samples of that bin as the empirical distribution function
+    of this test sample.    
     """
     
     def __init__(self, 
-                 estimator, # Object with a .predict-method (fitted).
-                 binSize: int | None = None, # Size of the neighbors considered to compute conditional density.
-                 weightsByDistance: bool = False,
+                 estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
+                 binSize: int=None, # Size of the bins created while running fit.
+                 # Determines behaviour of method `getWeights`. If False, all weights receive the same  
+                 # value. If True, the distance of the point forecasts is taking into account.
+                 weightsByDistance: bool=False, 
                  ):
         
         super(BaseEstimator, self).__init__(estimator = estimator,
@@ -83,10 +100,16 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
     
     #---
     
-    def fit(self, 
-            X: np.ndarray, # Feature matrix used by 'estimator' to predict 'y'.
-            y: np.ndarray, # 1-dimensional target variable corresponding to the features 'X'.
+    def fit(self: LevelSetKDEx, 
+            X: np.ndarray, # Feature matrix used by `estimator` to predict `y`.
+            y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
             ):
+        """
+        Fit `LevelSetKDEx` model by grouping the point predictions of the samples specified via `X`
+        according to their value. Samples are recursively sorted into bins until each bin contains
+        `binSize` many samples. For details, checkout the function `generateBins` which does the
+        heavy lifting.
+        """
         
         # Checks
         if self.binSize is None:
@@ -132,23 +155,30 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
     #---
     
     def getWeights(self, 
-                   X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
-                   outputType: 'all' | # Specifies structure of output.
-                               'onlyPositiveWeights' | 
-                               'summarized' | 
-                               'cumulativeDistribution' | 
-                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.yTrain containing floats being multiplied with self.yTrain.
-                   ):
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None, 
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        
+        # __annotations__ = BaseWeightsBasedEstimator.getWeights.__annotations__
+        __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
         
         if not self.fitted:
             raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
                                  "appropriate arguments before trying to compute weights.")
         
+        #---
+        
         yPred = self.estimator.predict(X)
         
         binPerPred = np.searchsorted(a = self.lowerBoundPerBin, v = yPred, side = 'right') - 1
         neighborsList = [self.indicesPerBin[binIndex] for binIndex in binPerPred]
+        
+        #---
         
         if self.weightsByDistance:
 
@@ -189,11 +219,11 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
         return weightsDataList
     
 
-# %% ../nbs/01_levelSetKDEx.ipynb 14
-def generateBins(binSize: int, # Size of the bins of values being grouped together.
+# %% ../nbs/01_levelSetKDEx.ipynb 17
+def generateBins(binSize: int, # Size of the bins of values of `yPred` being grouped together.
                  yPred: np.ndarray, # 1-dimensional array of predicted values.
                  ):
-    "Used to generate the bin-structure induced by the Level-Set-Forecaster algorithm"
+    "Used to generate the bin-structure used by `LevelSetKDEx` to compute density estimations."
     
     predIndicesSort = np.argsort(yPred)
     yPredSorted = yPred[predIndicesSort]
@@ -230,7 +260,7 @@ def generateBins(binSize: int, # Size of the bins of values being grouped togeth
     
     return indicesPerBin, lowerBoundPerBin
 
-# %% ../nbs/01_levelSetKDEx.ipynb 16
+# %% ../nbs/01_levelSetKDEx.ipynb 19
 class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
     """
      `LevelSetKDEx_kNN` turns any point predictor that has a .predict-method 
@@ -244,17 +274,16 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
     viewed as our estimation of the conditional distribution of each the new sample 
     at hand.
     
-    NOTE 1: The `LevelSetKDEx_kNN` class can only be applied to estimators that 
-    have been fitted already.
-    
-    NOTE 2: In contrast to the standard `LevelSetKDEx`, it is possible to apply
+    NOTE: In contrast to the standard `LevelSetKDEx`, it is possible to apply
     `LevelSetKDEx_kNN` to arbitrary dimensional point predictors.
     """
     
     def __init__(self, 
-                 estimator, # Object with a .predict-method (fitted).
-                 binSize: int | None = None, # Size of the neighbors considered to compute conditional density.
-                 weightsByDistance: bool = False,
+                 estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
+                 binSize: int=None, # Size of the bins created while running fit.
+                 # Determines behaviour of method `getWeights`. If False, all weights receive the same  
+                 # value. If True, the distance of the point forecasts is taking into account.
+                 weightsByDistance: bool=False, 
                  ):
         
         super(BaseEstimator, self).__init__(estimator = estimator,
@@ -268,10 +297,14 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
         
     #---
     
-    def fit(self: LevelSetKDEx_kNN, 
-            X: np.ndarray, # Feature matrix used by 'estimator' to predict 'y'.
-            y: np.ndarray, # Target variable corresponding to features 'X'.
+    def fit(self: LevelSetKDEx, 
+            X: np.ndarray, # Feature matrix used by `estimator` to predict `y`.
+            y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
             ):
+        """
+        Fit `LevelSetKDEx_kNN` model by applying the nearest neighbors algorithm to the poiunt
+        predictions of the samples specified by `X` based on `estimator`. 
+        """
         
         # Checks
         if self.binSize is None:
@@ -319,15 +352,18 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
         
     #---
     
-    def getWeights(self: LevelSetKDEx_kNN, 
-                   X: np.ndarray, # Feature matrix of samples for which conditional density estimates are computed.
-                   outputType: 'all' | # Specifies structure of output.
-                               'onlyPositiveWeights' | 
-                               'summarized' | 
-                               'cumulativeDistribution' | 
-                               'cumulativeDistributionSummarized' = 'onlyPositiveWeights', 
-                   scalingList: list | np.ndarray | None = None, # List or array with same size as self.yTrain containing floats being multiplied with self.yTrain.
-                  ):
+    def getWeights(self, 
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None, 
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        
+        # __annotations__ = BaseWeightsBasedEstimator.getWeights.__annotations__
+        __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
         
         if not self.fitted:
             raise NotFittedError("This LevelSetKDEx_kNN instance is not fitted yet. Call 'fit' with "
@@ -402,18 +438,24 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
         return weightsDataList
       
 
-# %% ../nbs/01_levelSetKDEx.ipynb 21
+# %% ../nbs/01_levelSetKDEx.ipynb 24
 class binSizeCV:
-
+    """
+    Class to efficiently tune the `binSize` parameter of all Level-Set based models.
+    """
+    
     def __init__(self,
-                 estimatorLSx, # Object with a .predict-method (fitted).
-                 cvFolds, # Specifies cross-validation-splits. Identical to 'cv' used for cross-validation in sklearn.
-                 binSizeGrid: list | np.ndarray = [4, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 
-                                                   100, 125, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900,
-                                                   1000, 1250, 1500, 1750, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000], # binSize (int) values being evaluated.                
-                 probs: list | np.ndarray = [i / 100 for i in range(1, 100, 1)], # list or array of floats between 0 and 1. p-quantiles being predicted to evaluate performance of LSF.
-                 refitPerProb: bool = False, # If True, for each p-quantile a fitted LSF with best binSize to predict it is returned. Otherwise only one LSF is returned that is best over all probs.
-                 n_jobs: int | None = None, # number of folds being computed in parallel.
+                 estimatorLSx, # A Level-Set based model.
+                 cvFolds, # An iterable yielding (train, test) splits as arrays of indices.
+                 # Integer values being evaluated as candidates for the optimal binSize value.
+                 binSizeGrid: list=[4, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 
+                                    100, 125, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900,
+                                    1000, 1250, 1500, 1750, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000],                 
+                 probs: list=[i / 100 for i in range(1, 100, 1)], # list or array of floats between 0 and 1. p-quantiles being predicted to evaluate performance of LSF.
+                 # If True, for each p-quantile a fitted LSF with best binSize to predict it is returned. 
+                 # Otherwise only one LSF is returned that is best over all probs.
+                 refitPerProb: bool=False, 
+                 n_jobs: int=None, # number of folds being computed in parallel.
                  ):
         
         # CHECKS  
@@ -440,11 +482,12 @@ class binSizeCV:
         self.cv_results_raw = None
         
 
-# %% ../nbs/01_levelSetKDEx.ipynb 23
+# %% ../nbs/01_levelSetKDEx.ipynb 26
 @patch
 def fit(self: binSizeCV, 
-        X, 
-        y):
+        X: np.ndarray, # Feature matrix (has to work with the folds specified via `cvFolds`)
+        y: np.ndarray, # Target values (has to work with the folds specified via `cvFolds`)
+        ): 
     
     # Making sure that X and y are arrays to ensure correct subsetting via implicit indices.
     X = np.array(X)
@@ -504,7 +547,7 @@ def fit(self: binSizeCV,
 
         self.bestEstimatorLSx = estimatorLSx
 
-# %% ../nbs/01_levelSetKDEx.ipynb 26
+# %% ../nbs/01_levelSetKDEx.ipynb 29
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
@@ -564,7 +607,7 @@ def scoresForFold(cvFold, binSizeGrid, probs, estimatorLSx, y, X):
     
     return costRatioDf
 
-# %% ../nbs/01_levelSetKDEx.ipynb 28
+# %% ../nbs/01_levelSetKDEx.ipynb 31
 def getCostRatio(decisions, decisionsSAA, yTest, prob):
 
     # Newsvendor Costs of our model
