@@ -108,12 +108,14 @@ simply run the `getWeights` method.
 ``` python
 conditionalDensities = LSKDEx.getWeights(X = XTest,
                                          outputType = 'summarized')
-conditionalDensities[0]
+
+print(f"probabilities: {conditionalDensities[0][0]}")
+print(f"demand values: {conditionalDensities[0][1]}")
 ```
 
-    (array([0.49, 0.01, 0.21, 0.01, 0.16, 0.07, 0.04, 0.01]),
-     array([0.        , 0.01075269, 0.04      , 0.04878049, 0.08      ,
-            0.12      , 0.16      , 0.2       ]))
+    weights: [0.49 0.01 0.21 0.01 0.16 0.07 0.04 0.01]
+    demand values: [0.         0.01075269 0.04       0.04878049 0.08       0.12
+     0.16       0.2       ]
 
 Here, `conditionalDensities` is a list whose elements correspond to the
 samples specified via `X`. Every element contains a tuple, whose first
@@ -157,7 +159,9 @@ first sample to be lower or equal than 0.16 with a probability of 99%.
 ``` python
 cumulativeDistributions = LSKDEx.getWeights(X = XTest,
                                             outputType = 'cumulativeDistributionSummarized')
-cumulativeDistributions[0]
+
+print(f"cumulated probabilities: {cumulativeDistributions[0][0]}")
+print(f"demand values: {cumulativeDistributions[0][1]}")
 ```
 
     (array([0.49, 0.5 , 0.71, 0.72, 0.88, 0.95, 0.99, 1.  ]),
@@ -375,12 +379,14 @@ The output is the same as before.
 ``` python
 conditionalDensities = RF.getWeights(X = XTest,
                                      outputType = 'summarized')
-conditionalDensities[0]
+
+print(f"probabilities: {conditionalDensities[0][0]}")
+print(f"demand values: {conditionalDensities[0][1]}")
 ```
 
-    (array([0.0705    , 0.21453571, 0.21018651, 0.16406746, 0.19054365,
-            0.07993254, 0.05117857, 0.01905556]),
-     array([0.  , 0.04, 0.08, 0.12, 0.16, 0.2 , 0.24, 0.28]))
+    (array([0.06347258, 0.17158478, 0.27107937, 0.22641306, 0.11972294,
+            0.0765956 , 0.05928644, 0.0085119 , 0.00333333]),
+     array([0.  , 0.04, 0.08, 0.12, 0.16, 0.2 , 0.24, 0.28, 0.36]))
 
 ``` python
 predRes = RF.predict(X = XTest,
@@ -391,12 +397,12 @@ print(predRes.iloc[0:6, :].to_markdown())
 
     |    |   0.01 |   0.5 |   0.99 |
     |---:|-------:|------:|-------:|
-    |  0 |      0 |  0.12 |   0.28 |
-    |  1 |      0 |  0.12 |   0.36 |
-    |  2 |      0 |  0.12 |   0.28 |
-    |  3 |      0 |  0.16 |   0.44 |
+    |  0 |      0 |  0.08 |   0.28 |
+    |  1 |      0 |  0.12 |   0.32 |
+    |  2 |      0 |  0.12 |   0.32 |
+    |  3 |      0 |  0.16 |   0.28 |
     |  4 |      0 |  0.12 |   0.32 |
-    |  5 |      0 |  0.2  |   0.4  |
+    |  5 |      0 |  0.2  |   0.32 |
 
 The original `predict` method of the `RandomForestRegressor` has been
 renamed to `pointPredict`:
@@ -405,4 +411,4 @@ renamed to `pointPredict`:
 RF.pointPredict(X = XTest)[0:6]
 ```
 
-    array([0.1032, 0.1216, 0.1384, 0.1644, 0.1504, 0.1884])
+    array([0.1084, 0.1076, 0.1288, 0.1456, 0.1552, 0.1944])
