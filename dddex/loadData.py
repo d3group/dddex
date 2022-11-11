@@ -15,19 +15,22 @@ from tsfresh.utilities.dataframe_functions import roll_time_series
 from tsfresh import extract_features
 import pathlib
 
+import pkg_resources
+
 # %% auto 0
 __all__ = ['loadDataYaz', 'add_lag_features']
 
 # %% ../nbs/04_loadData.ipynb 5
 def loadDataYaz(testDays = 28, returnXY = True, daysToCut = 0):
     
-    currentFile = __file__
-    scriptPath = os.path.realpath(currentFile)  # /home/user/test/my_script.py
-    dirPath = os.path.dirname(scriptPath)  # /home/user/test
+#     currentFile = __file__
+#     scriptPath = os.path.realpath(currentFile)  # /home/user/test/my_script.py
+#     dirPath = os.path.dirname(scriptPath)  # /home/user/test
     
-    dataDirPath = join(dirPath, 'datasets')
-    dataPath = join(dataDirPath, 'dataYaz.csv')
+#     dataDirPath = join(dirPath, 'datasets')
+#     dataPath = join(dataDirPath, 'dataYaz.csv')
     
+    dataPath = pkg_resources.resource_stream(__name__, 'datasets/dataYaz.csv')
     data = pd.read_csv(dataPath)
     
     # Cutting away daysToCut-many at end of data: Useful for evaluating

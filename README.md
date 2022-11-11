@@ -68,6 +68,90 @@ dataYaz, XTrain, yTrain, XTest, yTest = loadDataYaz(testDays = 28, returnXY = Tr
 LGBM = LGBMRegressor(n_jobs = 1)
 ```
 
+``` python
+loadDataYaz??
+```
+
+    Signature: loadDataYaz(testDays=28, returnXY=True, daysToCut=0)
+    Docstring: <no docstring>
+    Source:   
+    def loadDataYaz(testDays = 28, returnXY = True, daysToCut = 0):
+        
+        currentFile = __file__
+        scriptPath = os.path.realpath(currentFile)  # /home/user/test/my_script.py
+        dirPath = os.path.dirname(scriptPath)  # /home/user/test
+        
+        dataDirPath = join(dirPath, 'datasets')
+        dataPath = join(dataDirPath, 'dataYaz.csv')
+        
+        data = pd.read_csv(dataPath)
+        
+        # Cutting away daysToCut-many at end of data: Useful for evaluating
+        # evaluation on data in a rolled manner
+        cutOffDate = data.dayIndex.max() - daysToCut
+        data = data[data['dayIndex'] <= cutOffDate].reset_index(drop = True)
+        
+        # Label
+        if isinstance(testDays, int):
+            nDaysTest = testDays
+        else:
+            tsSizes = data.groupby(['id']).size()
+            nDaysTest = int(tsSizes.iloc[0] * testDays)
+            
+        cutoffDateTest = data.dayIndex.max() - nDaysTest
+        data['label'] = ['train' if data.dayIndex.iloc[i] <= cutoffDateTest else 'test' for i in range(data.shape[0])]    
+
+        # Normalize Demand
+        scalingData = data[data.label == 'train'].groupby('id')['demand'].agg('max').reset_index()
+        scalingData.rename(columns = {'demand': 'scalingValue'}, inplace = True)
+        data = pd.merge(data, scalingData, on = 'id')
+
+        data['demand'] = data.demand / data.scalingValue
+
+        #---
+
+        # Add lag features
+        y = pd.DataFrame(data['demand'])
+        X = data.drop(columns = ['demand'])
+
+        # set lag features
+        fc_parameters = MinimalFCParameters()
+
+        # delete length features
+        del fc_parameters['length']
+
+        # create lag features
+        X, y = add_lag_features(X = X, 
+                                y = y, 
+                                column_id = ['id'], 
+                                column_sort = 'dayIndex', 
+                                feature_dict = fc_parameters, 
+                                time_windows = [(7, 7), (14, 14), (28, 28)])
+        
+        data = pd.concat([y, X], axis = 1)
+                          
+        # Turn y from Series or dataframe to flatted array
+        y = np.ravel(y)
+        
+        #---
+        
+        X = np.array(data.drop(['demand', 'label', 'id'], axis = 1))
+        
+        XTrain = X[data['label'] == 'train']
+        yTrain = y[data['label'] == 'train']
+        
+        XTest = X[data['label'] == 'test']
+        yTest = y[data['label'] == 'test']
+        
+        #---
+        
+        if returnXY:
+            return data, XTrain, yTrain, XTest, yTest
+        else:
+            return data
+    File:      ~/dddex/dddex/loadData.py
+    Type:      function
+
 There are three parameters for
 [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex):
 
