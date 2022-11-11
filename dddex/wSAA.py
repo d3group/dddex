@@ -15,7 +15,7 @@ from .baseClasses import BaseWeightsBasedEstimator
 from .utils import restructureWeightsDataList
 
 # %% auto 0
-__all__ = ['RandomForestWSAA', 'SAA']
+__all__ = ['RandomForestWSAA', 'SampleAverageApproximation']
 
 # %% ../nbs/02_wSAA.ipynb 9
 class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
@@ -98,13 +98,13 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
 
 
 # %% ../nbs/02_wSAA.ipynb 14
-class SAA(BaseWeightsBasedEstimator):
+class SampleAverageApproximation(BaseWeightsBasedEstimator):
     """SAA is a featureless approach that assumes the density of the target variable is given
     by assigning equal probability to each historical observation of said target variable."""
     
     def __init__(self):
         
-        self.y = None
+        self.yTrain = None
         
     #---
         
@@ -117,12 +117,12 @@ class SAA(BaseWeightsBasedEstimator):
     def fit(self: SAA, 
             y: np.ndarray, # Target values which form the estimated density function based on the SAA algorithm.
             ):
-        self.y = y
+        self.yTrain = y
     
     #---
     
-    def getWeights(self: SAA, 
-                   X: np.ndarray, # Feature matrix for whose rows conditional density estimates are computed.
+    def getWeights(self: SampleAverageApproximation, 
+                   X: np.ndarray = None, # Feature matrix for whose rows conditional density estimates are computed.
                    outputType: 'all' | # Specifies structure of output.
                                'onlyPositiveWeights' | 
                                'summarized' | 
@@ -132,16 +132,16 @@ class SAA(BaseWeightsBasedEstimator):
                    ):
 
         if X is None:
-            neighborsList = [np.arange(len(self.y))]
+            neighborsList = [np.arange(len(self.yTrain))]
         else:
-            neighborsList = [np.arange(len(self.y)) for i in range(X.shape[0])]
+            neighborsList = [np.arange(len(self.yTrain))] * X.shape[0]
 
         # weightsDataList is a list whose elements correspond to one test prediction each. 
         weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
 
         weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                      outputType = outputType, 
-                                                     y = self.y,
+                                                     y = self.yTrain,
                                                      scalingList = scalingList,
                                                      equalWeights = True)
 

@@ -18,7 +18,7 @@ import warnings
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 from .baseClasses import BaseWeightsBasedEstimator
-from .wSAA import SAA
+from .wSAA import SampleAverageApproximation
 from .utils import restructureWeightsDataList
 
 # %% auto 0
@@ -523,7 +523,7 @@ def scoresForFold(cvFold, binSizeGrid, probs, estimatorLSx, y, X):
     
     #---
        
-    SAA_fold = SAA()
+    SAA_fold = SampleAverageApproximation()
     SAA_fold.fit(y = yTrainFold)
     
     # By setting 'X = None', the SAA results are only computed for a single observation (they are independent of X anyway).
