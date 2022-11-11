@@ -34,9 +34,9 @@ To ensure compatibility with Scikit-Learn, as usual the classes
 [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
 and
 [`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_knn)
-both implement a `fit` and `predict` method. As they compute estimations
-of conditional densities, the `predict` method outputs p-quantiles
-rather than point forecasts.
+both implement a `fit` and `predict` method. As the purposes of both
+classes is to compute estimations of conditional densities, the
+`predict` method outputs p-quantiles rather than point forecasts.
 
 Our choice of the class-names is supposed to be indicative of the
 underlying models: The name *LevelSet* stems from the fact that both
