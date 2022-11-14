@@ -71,7 +71,7 @@ LGBM = LGBMRegressor(n_jobs = 1)
 There are three parameters for
 [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex):
 
-- **estimator**: A point forecasting model that must have a *.predict*
+- **estimator**: A point forecasting model that must have a `predict`
   method.
 - **binSize**: The amount of training samples considered to compute the
   conditional densities (for more details, see *To be written*).
@@ -113,7 +113,7 @@ print(f"probabilities: {conditionalDensities[0][0]}")
 print(f"demand values: {conditionalDensities[0][1]}")
 ```
 
-    weights: [0.49 0.01 0.21 0.01 0.16 0.07 0.04 0.01]
+    probabilities: [0.49 0.01 0.21 0.01 0.16 0.07 0.04 0.01]
     demand values: [0.         0.01075269 0.04       0.04878049 0.08       0.12
      0.16       0.2       ]
 
@@ -164,9 +164,9 @@ print(f"cumulated probabilities: {cumulativeDistributions[0][0]}")
 print(f"demand values: {cumulativeDistributions[0][1]}")
 ```
 
-    (array([0.49, 0.5 , 0.71, 0.72, 0.88, 0.95, 0.99, 1.  ]),
-     array([0.        , 0.01075269, 0.04      , 0.04878049, 0.08      ,
-            0.12      , 0.16      , 0.2       ]))
+    cumulated probabilities: [0.49 0.5  0.71 0.72 0.88 0.95 0.99 1.  ]
+    demand values: [0.         0.01075269 0.04       0.04878049 0.08       0.12
+     0.16       0.2       ]
 
 We can also compute estimations of quantiles using the `predict` method.
 The parameter *probs* specifies the quantiles we want to predict.
@@ -384,9 +384,9 @@ print(f"probabilities: {conditionalDensities[0][0]}")
 print(f"demand values: {conditionalDensities[0][1]}")
 ```
 
-    (array([0.06347258, 0.17158478, 0.27107937, 0.22641306, 0.11972294,
-            0.0765956 , 0.05928644, 0.0085119 , 0.00333333]),
-     array([0.  , 0.04, 0.08, 0.12, 0.16, 0.2 , 0.24, 0.28, 0.36]))
+    probabilities: [0.07592857 0.15247619 0.24953463 0.15449675 0.21877381 0.09259957
+     0.03252381 0.01666667 0.007     ]
+    demand values: [0.   0.04 0.08 0.12 0.16 0.2  0.24 0.28 0.32]
 
 ``` python
 predRes = RF.predict(X = XTest,
@@ -397,10 +397,10 @@ print(predRes.iloc[0:6, :].to_markdown())
 
     |    |   0.01 |   0.5 |   0.99 |
     |---:|-------:|------:|-------:|
-    |  0 |      0 |  0.08 |   0.28 |
+    |  0 |      0 |  0.12 |   0.28 |
     |  1 |      0 |  0.12 |   0.32 |
     |  2 |      0 |  0.12 |   0.32 |
-    |  3 |      0 |  0.16 |   0.28 |
+    |  3 |      0 |  0.16 |   0.32 |
     |  4 |      0 |  0.12 |   0.32 |
     |  5 |      0 |  0.2  |   0.32 |
 
@@ -411,4 +411,4 @@ renamed to `pointPredict`:
 RF.pointPredict(X = XTest)[0:6]
 ```
 
-    array([0.1084, 0.1076, 0.1288, 0.1456, 0.1552, 0.1944])
+    array([0.1148, 0.12  , 0.1368, 0.1412, 0.1408, 0.1868])
