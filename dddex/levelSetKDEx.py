@@ -603,8 +603,7 @@ class LevelSetKDEx_NN_new(BaseWeightsBasedEstimator, BaseLSx):
             
             weights = np.array(weights) / sum(weights)
             weightsDataList.append((weights, np.array(indicesPosWeight)))
-            
-                    
+                             
         weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                      outputType = outputType, 
                                                      y = self.yTrain,
@@ -739,7 +738,7 @@ def scoresForFold(cvFold, binSizeGrid, probs, estimatorLSx, y, X):
     XTestFold = X[indicesTest]
     
     estimatorLSx.refitPointEstimator(X = XTrainFold, y = yTrainFold)
-    
+        
     #---
        
     SAA_fold = SampleAverageApproximation()
