@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
-from collections import defaultdict, Counter
+from collections import defaultdict, Counter, deque
 from joblib import Parallel, delayed, dump, load
 import copy
 import warnings
@@ -22,8 +22,8 @@ from .wSAA import SampleAverageApproximation
 from .utils import restructureWeightsDataList
 
 # %% auto 0
-__all__ = ['BaseLSx', 'LevelSetKDEx', 'generateBins', 'LevelSetKDEx_kNN', 'LevelSetKDEx_NN_new', 'binSizeCV', 'scoresForFold',
-           'getCostRatio']
+__all__ = ['BaseLSx', 'LevelSetKDEx', 'generateBins', 'LevelSetKDEx_kNN', 'LevelSetKDEx_NN', 'getNeighbors', 'getNeighborsTest',
+           'getKernelValues', 'binSizeCV', 'scoresForFold', 'getCostRatio']
 
 # %% ../nbs/01_levelSetKDEx.ipynb 7
 class BaseLSx:
@@ -94,7 +94,7 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
                                             weightsByDistance = weightsByDistance)
 
         self.yTrain = None
-        self.yTrainPred = None
+        self.yPredTrain = None
         self.indicesPerBin = None
         self.lowerBoundPerBin = None
         self.fitted = False
@@ -131,10 +131,8 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
         
         try:
             yPred = self.estimator.predict(X)
+            
         except NotFittedError:
-            # warnings.warn("The object 'estimator' must have been fitted already!"
-            #               "'estimator' will be fitted with 'X' and 'y' to enable point predicting!",
-            #               stacklevel = 2)
             try:
                 self.estimator.fit(X = X, y = y)                
             except:
@@ -148,7 +146,7 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
                                                        yPred = yPred)
 
         self.yTrain = y
-        self.yTrainPred = yPred
+        self.yPredTrain = yPred
         self.indicesPerBin = indicesPerBin
         self.lowerBoundPerBin = lowerBoundPerBin
         self.fitted = True
@@ -183,7 +181,7 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
         
         if self.weightsByDistance:
 
-            predDistances = [np.abs(self.yTrainPred[neighborsList[i]] - yPred[i]) for i in range(len(neighborsList))]
+            predDistances = [np.abs(self.yPredTrain[neighborsList[i]] - yPred[i]) for i in range(len(neighborsList))]
 
             weightsDataList = list()
             
@@ -292,7 +290,7 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
                                             weightsByDistance = weightsByDistance)
         
         self.yTrain = None
-        self.yTrainPred = None
+        self.yPredTrain = None
         self.nearestNeighborsOnPreds = None
         self.fitted = False
         
@@ -347,7 +345,7 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
         #---
 
         self.yTrain = y
-        self.yTrainPred = yPred
+        self.yPredTrain = yPred
         self.nearestNeighborsOnPreds = nn
         self.fitted = True
         
@@ -388,7 +386,7 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
         indicesToMod = distanceCheck[0]
 
         for index in indicesToMod:
-            distanceExtremePoint = np.absolute(yPred[index] - self.yTrainPred[neighborsMatrix[index, self.binSize-1]])
+            distanceExtremePoint = np.absolute(yPred[index] - self.yPredTrain[neighborsMatrix[index, self.binSize-1]])
 
             neighborsByRadius = nn.radius_neighbors(X = yPred_reshaped[index:index + 1], 
                                                     radius = distanceExtremePoint, return_distance = False)[0]
@@ -439,7 +437,7 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
       
 
 # %% ../nbs/01_levelSetKDEx.ipynb 23
-class LevelSetKDEx_NN_new(BaseWeightsBasedEstimator, BaseLSx):
+class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
     """
      `LevelSetKDEx_kNN` turns any point predictor that has a .predict-method 
     into an estimator of the condititional density of the underlying distribution.
@@ -469,7 +467,7 @@ class LevelSetKDEx_NN_new(BaseWeightsBasedEstimator, BaseLSx):
                                             weightsByDistance = weightsByDistance)
         
         self.yTrain = None
-        self.yTrainPred = None
+        self.yPredTrain = None
         self.nearestNeighborsOnPreds = None
         self.fitted = False
         
@@ -514,17 +512,15 @@ class LevelSetKDEx_NN_new(BaseWeightsBasedEstimator, BaseLSx):
 
         #---
         
-        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
-        
-        nn = NearestNeighbors(algorithm = 'kd_tree')
-        nn.fit(X = yPred_reshaped)
-
-        #---
+        neighborsDict, neighborsRemoved, neighborsAdded = getNeighbors(binSize = self.binSize,
+                                                                       yPred = yPred)
 
         self.yTrain = y
-        self.yTrainPred = yPred
-        self.nearestNeighborsOnPreds = nn
-        self.fitted = True
+        self.yPredTrain = yPred
+        self.neighborsDictTrain = neighborsDict
+        self._neighborsRemoved = neighborsRemoved
+        self._neighborsAdded = neighborsAdded
+        self._fitted = True
         
     #---
     
@@ -540,70 +536,30 @@ class LevelSetKDEx_NN_new(BaseWeightsBasedEstimator, BaseLSx):
         
         __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
         
-        if not self.fitted:
+        if not self._fitted:
             raise NotFittedError("This LevelSetKDEx_kNN instance is not fitted yet. Call 'fit' with "
                                  "appropriate arguments before trying to compute weights.")
             
         #---
-
-        nn = self.nearestNeighborsOnPreds
-
-        #---
-         
-        yTrainPred_reshaped = np.reshape(self.yTrainPred, newshape = (len(self.yTrainPred), 1))
-
-        distancesMatrixTrain, neighborsMatrixTrain = nn.kneighbors(X = yTrainPred_reshaped, 
-                                                                   n_neighbors = self.binSize + 1)
         
-        neighborsListTrain = list(neighborsMatrixTrain[:, 0:self.binSize])
-        distanceCheckTrain = np.where(distancesMatrixTrain[:, self.binSize - 1] == distancesMatrixTrain[:, self.binSize])
-        indicesToModTrain = distanceCheckTrain[0]
-
-        for index in indicesToModTrain:
-            distanceExtremePoint = np.absolute(self.yTrainPred[index] - self.yTrainPred[neighborsMatrixTrain[index, self.binSize-1]])
-
-            neighborsByRadius = nn.radius_neighbors(X = yTrainPred_reshaped[index:index + 1], 
-                                                    radius = distanceExtremePoint, return_distance = False)[0]
-            neighborsListTrain[index] = neighborsByRadius
+        yPred = self.estimator.predict(X)
+        
+        neighborsDictTest = getNeighborsTest(binSize = self.binSize,
+                                             yPred = yPred,
+                                             yPredTrain = self.yPredTrain,
+                                             neighborsDictTrain = self.neighborsDictTrain)
         
         #---
-
-        yPred = self.estimator.predict(X)   
-        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
-
-        distancesMatrix, neighborsMatrix = nn.kneighbors(X = yPred_reshaped, 
-                                                         n_neighbors = self.binSize + 1)
         
-        neighborsList = list(neighborsMatrix[:, 0:self.binSize])
-        distanceCheck = np.where(distancesMatrix[:, self.binSize - 1] == distancesMatrix[:, self.binSize])
-        indicesToMod = distanceCheck[0]
-
-        for index in indicesToMod:
-            distanceExtremePoint = np.absolute(yPred[index] - self.yTrainPred[neighborsMatrix[index, self.binSize-1]])
-
-            neighborsByRadius = nn.radius_neighbors(X = yPred_reshaped[index:index + 1], 
-                                                    radius = distanceExtremePoint, return_distance = False)[0]
-            neighborsList[index] = neighborsByRadius
-
-        #---
+        weightsDataList = getKernelValues(yPred = yPred,
+                                          yPredTrain = self.yPredTrain,
+                                          neighborsDictTest = neighborsDictTest,
+                                          neighborsDictTrain = self.neighborsDictTrain,
+                                          neighborsRemoved = self._neighborsRemoved,
+                                          neighborsAdded = self._neighborsAdded,
+                                          binSize = self.binSize,
+                                          returnWeights = True)
         
-        weightsDataList = list()
-        
-        for neighbors in neighborsList:
-            
-            weights = list()
-            indicesPosWeight = list()
-            
-            for i in range(len(neighborsListTrain)):
-                weight = 2 * len(set(neighbors) & set(neighborsListTrain[i])) / (len(neighbors) + len(neighborsListTrain[i]))
-                
-                if weight > 0:
-                    weights.append(weight)
-                    indicesPosWeight.append(i)
-            
-            weights = np.array(weights) / sum(weights)
-            weightsDataList.append((weights, np.array(indicesPosWeight)))
-                             
         weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                      outputType = outputType, 
                                                      y = self.yTrain,
@@ -614,6 +570,337 @@ class LevelSetKDEx_NN_new(BaseWeightsBasedEstimator, BaseLSx):
       
 
 # %% ../nbs/01_levelSetKDEx.ipynb 25
+def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being grouped together.
+                 yPred: np.ndarray, # 1-dimensional array of predicted values.
+                 ):
+    "Used to generate the neighboorhoods used by `LevelSetKDEx` to compute density estimations."
+    
+    duplicationDict = defaultdict(list)
+    counterDict = defaultdict(int)
+    
+    for index, value in enumerate(yPred):
+        duplicationDict[value].append(index)
+        counterDict[value] += 1
+    
+    yPredUnique = np.sort(list(duplicationDict.keys()))
+    
+    neighborsPerPred = dict()
+    
+    #---
+    
+    neighbors = deque()
+    
+    for k in range(len(yPredUnique)):
+        
+        if len(neighbors) < binSize:
+            neighbors.extend(duplicationDict[yPredUnique[k]])
+            
+        else:
+            neighborsMaxIter = k
+            break
+        
+        if k == (len(yPredUnique) - 1):
+            neighborsMaxIter = len(yPred)
+            
+    neighborsPerPred[yPredUnique[0]] = list(neighbors)
+    
+    #---
+    
+    neighborsRemoved = [0]
+    neighborsAdded = [0]
+    
+    for i in range(1, len(yPredUnique)):
+        
+        removeCounter = 0
+        addCounter = 0
+        
+        predCurrent = yPredUnique[i]
+        
+        #---
+            
+        # Check and Clean current neighborhood before starting the loop
+            
+        if len(neighbors) > binSize:
+            
+            checkNeeded = True
+            while checkNeeded:
+                
+                distanceToMin = predCurrent - yPred[neighbors[0]]
+                distanceToMax = yPred[neighbors[len(neighbors) - 1]] - predCurrent
+
+                if distanceToMin > 0 and distanceToMin > distanceToMax:
+                    countIdenticalMin = counterDict[yPred[neighbors[0]]]
+                
+                    if len(neighbors) - countIdenticalMin >= binSize:
+                        removeCounter += countIdenticalMin
+
+                        for p in range(countIdenticalMin):
+                            neighbors.popleft()
+                            
+                    else:
+                        checkNeeded = False
+                else:
+                    checkNeeded = False
+
+        #---
+        
+        distanceToMin = predCurrent - yPred[neighbors[0]]
+        distanceToMax = yPred[neighbors[len(neighbors) - 1]] - predCurrent
+
+        for k in range(neighborsMaxIter, len(yPredUnique), 1):
+            predNew = yPredUnique[k]
+            distance = predNew - predCurrent 
+
+            if len(neighbors) < binSize:
+                neighbors.extend(duplicationDict[predNew])
+                distanceToMax = yPred[neighbors[len(neighbors) - 1]] - predCurrent
+                addCounter += counterDict[predNew]
+                
+            elif distance < distanceToMin:
+                neighbors.extend(duplicationDict[predNew])
+                addCounter += counterDict[predNew]
+                
+                countIdenticalMin = counterDict[yPred[neighbors[0]]]
+                for p in range(countIdenticalMin): 
+                    neighbors.popleft()
+                    
+                removeCounter += countIdenticalMin
+                distanceToMin = predCurrent - yPred[neighbors[0]]
+                distanceToMax = yPred[neighbors[len(neighbors) - 1]] - predCurrent
+
+            elif distance == distanceToMin:
+                neighbors.extend(duplicationDict[predNew])
+                distanceToMax = yPred[neighbors[len(neighbors) - 1]] - predCurrent
+                addCounter += counterDict[predNew]
+                
+            elif distance == distanceToMax:
+                neighbors.extend(duplicationDict[predNew])
+                addCounter += counterDict[predNew]
+                
+            else:
+                neighborsMaxIter = k
+                break
+
+            # If we end up down here, it means that all train preds have sucessuflly been
+            # added to the current neighborhood. For that reason, k has to be set to len(yPred)
+            # in order to stop the code from starting the loop.
+            if k == (len(yPredUnique) - 1):
+                neighborsMaxIter = len(yPred)
+        
+        neighborsPerPred[predCurrent] = list(neighbors)
+        neighborsRemoved.append(removeCounter)
+        neighborsAdded.append(addCounter)
+        
+    #---
+ 
+    return neighborsPerPred, np.array(neighborsRemoved), np.array(neighborsAdded)
+
+# %% ../nbs/01_levelSetKDEx.ipynb 27
+def getNeighborsTest(binSize: int, # Size of the bins of values of `yPred` being grouped together.
+                     yPred: np.ndarray, # 1-dimensional array of predicted values.
+                     yPredTrain: np.ndarray, # 1-dimensional array of predicted train values.
+                     # Dict containing the neighbors of all train samples. Keys are the train predictions.
+                     neighborsDictTrain: dict, 
+                     ):
+    "Used to generate the neighboorhoods used by `LevelSetKDEx` to compute density estimations."
+    
+    duplicationDict = defaultdict(list)
+    counterDict = defaultdict(int)
+    
+    for index, value in enumerate(yPredTrain):
+        duplicationDict[value].append(index)
+        counterDict[value] += 1
+    
+    yPredTrainUnique = np.sort(list(duplicationDict.keys()))
+    yPredUnique = np.unique(yPred)
+    
+    yPredTrainUniqueRanking = {value: index for index, value in enumerate(yPredTrainUnique)}
+    
+    trainIndicesClosest = np.searchsorted(a = yPredTrainUnique, v = yPredUnique, side = 'right') - 1
+    
+    # Needed if any yPred value is lower than all yPredTrain values
+    trainIndicesClosest = np.clip(a = trainIndicesClosest, a_min = 0, a_max = None) 
+    yPredTrainClosest = yPredTrainUnique[trainIndicesClosest]
+    
+    #---
+    
+    neighborsPerPred = dict()
+
+    for i, predCurrent in enumerate(yPredUnique):
+        
+        neighbors = deque(neighborsDictTrain[yPredTrainClosest[i]])
+        neighborsMaxIndex = yPredTrainUniqueRanking[yPredTrain[neighbors[len(neighbors) - 1]]]
+        
+        distanceToMin = predCurrent - yPredTrain[neighbors[0]]
+        
+        # Check and Clean current neighborhood before starting the loop
+        if len(neighbors) > binSize:
+            
+            checkNeeded = True
+            while checkNeeded:
+                
+                distanceToMin = predCurrent - yPredTrain[neighbors[0]]
+                distanceToMax = yPredTrain[neighbors[len(neighbors) - 1]] - predCurrent
+
+                if distanceToMin > 0 and distanceToMin > distanceToMax:
+                    countIdenticalValuesLeftSide = counterDict[yPredTrain[neighbors[0]]]
+
+                    if len(neighbors) - countIdenticalValuesLeftSide >= binSize:
+                        for p in range(countIdenticalValuesLeftSide):
+                            neighbors.popleft()
+                    else:
+                        checkNeeded = False
+                else:
+                    checkNeeded = False
+
+        #---
+
+        distanceToMin = predCurrent - yPredTrain[neighbors[0]]
+        distanceToMax = yPredTrain[neighbors[len(neighbors) - 1]] - predCurrent
+
+        for k in range(neighborsMaxIndex + 1, len(yPredTrainUnique), 1):
+            predNew = yPredTrainUnique[k]
+            distance = predNew - predCurrent 
+                
+            if len(neighbors) < binSize:
+                neighbors.extend(duplicationDict[predNew])
+                distanceToMax = yPredTrain[neighbors[len(neighbors) - 1]] - predCurrent
+
+            elif distance < distanceToMin:
+                neighbors.extend(duplicationDict[predNew])
+                
+                for p in range(counterDict[yPredTrain[neighbors[0]]]): 
+                    neighbors.popleft()
+
+                distanceToMin = predCurrent - yPredTrain[neighbors[0]]
+                distanceToMax = yPredTrain[neighbors[len(neighbors) - 1]] - predCurrent
+
+            elif distance == distanceToMin:
+                neighbors.extend(duplicationDict[predNew])
+                distanceToMax = yPredTrain[neighbors[len(neighbors) - 1]] - predCurrent
+
+            elif distance == distanceToMax:
+                neighbors.extend(duplicationDict[predNew])
+
+            else:
+                break
+        
+        neighborsPerPred[predCurrent] = list(neighbors)
+        
+    #---
+ 
+    return neighborsPerPred
+
+# %% ../nbs/01_levelSetKDEx.ipynb 29
+def getKernelValues(yPred,
+                    yPredTrain,
+                    neighborsDictTest,
+                    neighborsDictTrain,
+                    neighborsRemoved,
+                    neighborsAdded,
+                    binSize,
+                    returnWeights = True):
+    
+    duplicationDict = defaultdict(list)
+    counterDict = defaultdict(int)
+    
+    for index, value in enumerate(yPredTrain):
+        duplicationDict[value].append(index)
+        counterDict[value] += 1
+    
+    yPredTrainUnique = np.sort(list(neighborsDictTrain.keys()))
+    trainIndicesClosest = np.searchsorted(a = yPredTrainUnique, v = yPred, side = 'right') - 1
+    
+    # Needed if any yPred value is lower than all yPredTrain values
+    trainIndicesClosest = np.clip(a = trainIndicesClosest, a_min = 0, a_max = None)
+    
+    #---
+    
+    kernelValuesList = list()
+    
+    for i in range(len(yPred)):
+        
+        trainIndexClosest = trainIndicesClosest[i]
+        neighbors = neighborsDictTest[yPred[i]]
+        sizeBin = len(neighbors)
+        
+        #---
+        
+        if trainIndexClosest + 1 <= len(yPredTrainUnique) - 1:
+            neighborsTrainClosest = neighborsDictTrain[yPredTrainUnique[trainIndexClosest+1]]
+            sharedNeighborsClosest = len(set(neighbors) & set(neighborsTrainClosest))
+            
+            if trainIndexClosest + 1 == len(yPredTrainUnique) - 1:
+                kernelValuesRight = np.expand_dims(2 * sharedNeighborsClosest / (sizeBin + len(neighborsTrainClosest)), axis = 0)
+                
+            else:
+                removeCum = np.concatenate([np.arange(1), neighborsRemoved[trainIndexClosest+2:len(yPredTrainUnique)]], axis = 0).cumsum()
+                addCum = np.concatenate([np.arange(1), neighborsAdded[trainIndexClosest+2:len(yPredTrainUnique)]], axis = 0).cumsum()
+
+                sharedNeighborsRight = np.clip(a = sharedNeighborsClosest - removeCum, a_min = 0, a_max = None)
+                binSizesRight = len(neighborsTrainClosest) - removeCum + addCum
+
+                kernelValuesRight = 2 * sharedNeighborsRight / (sizeBin + binSizesRight)
+        
+        else:
+            kernelValuesRight = np.arange(0)
+            
+        #---
+        
+        # trainIndexClosest == -1 means that the test pred is lower than any train pred
+        if trainIndexClosest >= 0:
+            neighborsTrainClosest = neighborsDictTrain[yPredTrainUnique[trainIndexClosest]]
+            sharedNeighborsClosest = len(set(neighbors) & set(neighborsTrainClosest))
+            
+            if trainIndexClosest == 0:
+                kernelValuesLeft = np.expand_dims(2 * sharedNeighborsClosest / (sizeBin + len(neighborsTrainClosest)), axis = 0)
+            
+            else:
+                neighborsRemovedFlip = np.flip(neighborsRemoved[1:trainIndexClosest+1])
+                addCum = np.concatenate([np.arange(1), neighborsRemovedFlip], axis = 0).cumsum()
+
+                neighborsAddedFlip = np.flip(neighborsAdded[1:trainIndexClosest+1])
+                removeCum = np.concatenate([np.arange(1), neighborsAddedFlip], axis = 0).cumsum()
+
+                sharedNeighborsLeft = np.clip(a = sharedNeighborsClosest - removeCum, a_min = 0, a_max = None)
+                binSizesLeft = len(neighborsTrainClosest) - removeCum + addCum
+
+                kernelValuesLeft = np.flip(2 * sharedNeighborsLeft / (sizeBin + binSizesLeft))
+                    
+        else:
+            kernelValuesLeft = np.arange(0)
+
+        #---
+        
+        kernelValuesUnique = np.concatenate([kernelValuesLeft, kernelValuesRight], axis = 0)
+        kernelValuesList.append(kernelValuesUnique)
+    
+    #---
+    
+    kernelMatrixUnique = np.array(kernelValuesList)
+    kernelMatrix = np.zeros(shape = (len(yPred), len(yPredTrain)))
+    
+    for index, predTrain in enumerate(yPredTrainUnique):
+        kernelMatrix[:, duplicationDict[predTrain]] = kernelMatrixUnique[:, [index]]
+    
+    #---
+    
+    if returnWeights:
+        weightsDataList = list()
+
+        for i in range(len(yPred)):
+            indices = np.where(kernelMatrix[i,:] > 0)[0]
+            weights = kernelMatrix[i, indices]
+            weights = weights / weights.sum()
+            weightsDataList.append((weights, indices))
+        
+        return weightsDataList
+    
+    else:
+        return kernelMatrix      
+        
+
+# %% ../nbs/01_levelSetKDEx.ipynb 31
 class binSizeCV:
     """
     Class to efficiently tune the `binSize` parameter of all Level-Set based models.
@@ -634,7 +921,7 @@ class binSizeCV:
                  ):
         
         # CHECKS  
-        if not isinstance(estimatorLSx, (LevelSetKDEx, LevelSetKDEx_kNN, LevelSetKDEx_NN_new)):
+        if not isinstance(estimatorLSx, (BaseLSx)):
             raise ValueError("'estimatorLSx' has to be a 'LevelSetKDEx', 'LevelSetKDEx_NN_new' or a 'LevelSetKDEx_kNN' object!")               
             
         if np.any(np.array(probs) > 1) or np.any(np.array(probs) < 0): 
@@ -657,7 +944,7 @@ class binSizeCV:
         self.cv_results_raw = None
         
 
-# %% ../nbs/01_levelSetKDEx.ipynb 26
+# %% ../nbs/01_levelSetKDEx.ipynb 32
 @patch
 def fit(self: binSizeCV, 
         X: np.ndarray, # Feature matrix (has to work with the folds specified via `cvFolds`)
@@ -671,19 +958,19 @@ def fit(self: binSizeCV,
     nSmallestTrainSample = len(self.cvFolds[0][0])
     self.binSizeGrid = [binSize for binSize in self.binSizeGrid if binSize <= nSmallestTrainSample]
     
-    # scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(scoresForFold)(cvFold = cvFold,
-    #                                                                       binSizeGrid = self.binSizeGrid,
-    #                                                                       probs = self.probs,
-    #                                                                       estimatorLSx = copy.deepcopy(self.estimatorLSx),
-    #                                                                       y = y,
-    #                                                                       X = X) for cvFold in self.cvFolds)
+    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(scoresForFold)(cvFold = cvFold,
+                                                                          binSizeGrid = self.binSizeGrid,
+                                                                          probs = self.probs,
+                                                                          estimatorLSx = copy.deepcopy(self.estimatorLSx),
+                                                                          y = y,
+                                                                          X = X) for cvFold in self.cvFolds)
     
-    scoresPerFold = [scoresForFold(cvFold = cvFold,
-                                   binSizeGrid = self.binSizeGrid,
-                                   probs = self.probs,
-                                   estimatorLSx = copy.deepcopy(self.estimatorLSx),
-                                   y = y,
-                                   X = X) for cvFold in self.cvFolds]
+#     scoresPerFold = [scoresForFold(cvFold = cvFold,
+#                                    binSizeGrid = self.binSizeGrid,
+#                                    probs = self.probs,
+#                                    estimatorLSx = copy.deepcopy(self.estimatorLSx),
+#                                    y = y,
+#                                    X = X) for cvFold in self.cvFolds]
 
     self.cv_results_raw = scoresPerFold
     meanCostsDf = sum(scoresPerFold) / len(scoresPerFold)
@@ -722,7 +1009,7 @@ def fit(self: binSizeCV,
 
         self.bestEstimatorLSx = estimatorLSx
 
-# %% ../nbs/01_levelSetKDEx.ipynb 29
+# %% ../nbs/01_levelSetKDEx.ipynb 35
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
@@ -782,7 +1069,7 @@ def scoresForFold(cvFold, binSizeGrid, probs, estimatorLSx, y, X):
     
     return costRatioDf
 
-# %% ../nbs/01_levelSetKDEx.ipynb 31
+# %% ../nbs/01_levelSetKDEx.ipynb 37
 def getCostRatio(decisions, decisionsSAA, yTest, prob):
 
     # Newsvendor Costs of our model
