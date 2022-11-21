@@ -910,9 +910,11 @@ class binSizeCV:
                  estimatorLSx, # A Level-Set based model.
                  cvFolds, # An iterable yielding (train, test) splits as arrays of indices.
                  # Integer values being evaluated as candidates for the optimal binSize value.
-                 binSizeGrid: list=[4, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 
-                                    100, 125, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900,
-                                    1000, 1250, 1500, 1750, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000],                 
+                 binSizeGrid: list=[5, 10, 25, 50, 75, 100, 
+                                    150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000,
+                                    1000, 1250, 1500, 1750, 2000, 2500, 3000, 
+                                    4000, 5000, 6000, 8000, 10000,
+                                    15000, 20000, 30000, 40000, 50000, 75000, 100000],                 
                  probs: list=[i / 100 for i in range(1, 100, 1)], # list or array of floats between 0 and 1. p-quantiles being predicted to evaluate performance of LSF.
                  # If True, for each p-quantile a fitted LSF with best binSize to predict it is returned. 
                  # Otherwise only one LSF is returned that is best over all probs.

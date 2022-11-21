@@ -8,6 +8,7 @@ from fastcore.utils import *
 from fastcore.script import *
 
 from sklearn.base import BaseEstimator
+from numpy.random import uniform
 
 from abc import ABC, abstractmethod
 import pandas as pd
@@ -24,7 +25,35 @@ class BaseWeightsBasedEstimator(BaseEstimator):
     to be used directly.
     """
     
-    # @call_parse
+    def getWeights(self, 
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None,
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        """
+        Computes estimated conditional density for each sample specified by `X`. The concrete structure of each element 
+        of the returned list depends on the specified value of `outputType`:
+        
+        - **all**: An array with the same length as the number of training samples. Each entry represents the probability 
+          of each training sample.
+        - **onlyPositiveWeights**: A tuple. The first element of the tuple represents the probabilities and the second 
+          one the indices of the corresponding training sample. Only probalities greater than zero are returned. 
+          Note: This is the most memory and computationally efficient output type.
+        - **summarized**: A tuple. The first element of the tuple represents the probabilities and the second one the 
+          corresponding value of `yTrain`. The probabilities corresponding to identical values of `yTrain` are aggregated.
+        - **cumDistribution**: A tuple. The first element of the tuple represents the probabilities and the second 
+          one the corresponding value of `yTrain`.
+        - **cumDistributionSummarized**: A tuple. The first element of the tuple represents the probabilities and 
+          the second one the corresponding value of `yTrain`. The probabilities corresponding to identical values of `yTrain` are aggregated.
+        """
+        pass
+    
+    #---
+    
     def predict(self : BaseWeightsBasedEstimator, 
                 X: np.ndarray, # Feature matrix for which conditional quantiles are computed.
                 probs: list, # Probabilities for which quantiles are computed.
@@ -36,9 +65,12 @@ class BaseWeightsBasedEstimator(BaseEstimator):
         """ Predict p-quantiles based on a reweighting of the empirical distribution function."""
         
         # Checks
-        if isinstance(probs, float) or probs == 0 or probs == 1:
-            probs = [probs]
-            
+        if isinstance(probs, int) or isinstance(probs, float):
+            if probs >= 0 and probs <= 1:
+                probs = [probs]
+            else:
+                raise ValueError("The values specified via 'probs' must lie between 0 and 1!")           
+                 
         if any([prob > 1 or prob < 0 for prob in probs]):
             raise ValueError("The values specified via 'probs' must lie between 0 and 1!")
         
@@ -73,32 +105,29 @@ class BaseWeightsBasedEstimator(BaseEstimator):
         else:
             return quantilesDict
         
-    #---
+    #---    
     
-    def getWeights(self, 
-                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
-                   # Specifies structure of the returned density estimates. One of: 
-                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
-                   outputType: str='onlyPositiveWeights', 
-                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
-                   # density of each sample for scaling purposes.
-                   scalingList: list=None,
-                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
-        """
-        Computes estimated conditional density for each sample specified by `X`. The concrete structure of each element 
-        of the returned list depends on the specified value of `outputType`:
+    def sampleScenarios(self,
+                        X: np.ndarray, # Feature matrix for which samples are computed.
+                        n: int,
+                        # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                        # density of each sample for scaling purposes.
+                        scalingList: list=None,
+                        ) -> np.ndarray: # array-like of shape (n_samples_in, n_scenarios)
         
-        - **all**: An array with the same length as the number of training samples. Each entry represents the probability 
-          of each training sample.
-        - **onlyPositiveWeights**: A tuple. The first element of the tuple represents the probabilities and the second 
-          one the indices of the corresponding training sample. Only probalities greater than zero are returned. 
-          Note: This is the most memory and computationally efficient output type.
-        - **summarized**: A tuple. The first element of the tuple represents the probabilities and the second one the 
-          corresponding value of `yTrain`. The probabilities corresponding to identical values of `yTrain` are aggregated.
-        - **cumDistribution**: A tuple. The first element of the tuple represents the probabilities and the second 
-          one the corresponding value of `yTrain`.
-        - **cumDistributionSummarized**: A tuple. The first element of the tuple represents the probabilities and 
-          the second one the corresponding value of `yTrain`. The probabilities corresponding to identical values of `yTrain` are aggregated.
-        """
-        pass
+        distributionData = self.getWeights(X = X,
+                                           outputType = 'cumulativeDistribution',
+                                           scalingList = scalingList)
+        
+        sampleList = list()
+        for probs, values in distributionData:
+            randomProbs = uniform(size = n)
+            randomProbs = randomProbs.reshape(n, 1)
+            sample = values[np.argmax(probs >= randomProbs, axis = 1)]
+
+            sampleList.append(sample)
+        
+        sampleMatrix = np.concatenate([sampleList], axis = 0)
+        
+        return sampleMatrix
     
