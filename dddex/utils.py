@@ -11,7 +11,8 @@ from collections import Counter, defaultdict
 import copy
 
 # %% auto 0
-__all__ = ['restructureWeightsDataList', 'summarizeWeightsData', 'groupedTimeSeriesSplit', 'generateFinalOutput']
+__all__ = ['restructureWeightsDataList', 'summarizeWeightsData', 'restructureWeightsDataList_multivariate',
+           'summarizeWeightsData_multivariate', 'groupedTimeSeriesSplit', 'generateFinalOutput']
 
 # %% ../nbs/03_utils.ipynb 7
 def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeights', y = None, scalingList = None, equalWeights = False):
@@ -103,6 +104,7 @@ def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeight
 def summarizeWeightsData(weightsPos, yWeightPos, equalWeights = False):
     
     if equalWeights:
+        
         counterDict = Counter(yWeightPos)
         yUniqueSorted = np.sort(list(counterDict.keys()))
 
@@ -134,6 +136,81 @@ def summarizeWeightsData(weightsPos, yWeightPos, equalWeights = False):
     return weightsSummarizedSorted, yUniqueSorted
 
 # %% ../nbs/03_utils.ipynb 11
+def restructureWeightsDataList_multivariate(weightsDataList, outputType = 'onlyPositiveWeights', y = None, scalingList = None, equalWeights = False):
+    
+    if outputType == 'all':
+        
+        weightsDataListAll = list()
+        
+        for weights, indicesPosWeight in weightsDataList:
+            weightsAll = np.zeros(len(y))
+            weightsAll[indicesPosWeight] = weights
+            weightsDataListAll.append(weightsAll)
+        
+        return weightsDataListAll
+    
+    #---
+    
+    elif outputType == 'onlyPositiveWeights':
+        
+        return weightsDataList
+    
+    #---
+    
+    elif outputType == 'summarized':
+        
+        weightsDataListSummarized = list()
+
+        for i in range(len(weightsDataList)):
+            weightsPos, yWeightPos = weightsDataList[i][0], y[weightsDataList[i][1]]
+            
+            weightsSummarized, yUnique = summarizeWeightsData_multivariate(weightsPos = weightsPos, 
+                                                                           yWeightPos = yWeightPos,
+                                                                           equalWeights = equalWeights)
+            
+            if not scalingList is None:
+                yUnique = yUnique * scalingList[i]
+                
+            weightsDataListSummarized.append((weightsSummarized, yUnique))
+            
+        return weightsDataListSummarized
+    
+
+# %% ../nbs/03_utils.ipynb 13
+def summarizeWeightsData_multivariate(weightsPos, yWeightPos, equalWeights = False):
+    
+    uniqueRes = np.unique(yWeightPos, return_counts = True, return_inverse = True, return_index = True, axis = 0)
+    
+    if equalWeights:
+        
+        weightsSummarizedSorted = np.array([uniqueRes[3][i] / len(yWeightPos) for i in range(len(uniqueRes[3]))])
+        yUniqueSorted = uniqueRes[0]
+        
+    else:
+        duplicationDict = defaultdict(list)
+        for index, indexUnique in enumerate(uniqueRes[2]):
+            duplicationDict[indexUnique].append(index)
+
+        #---
+
+        weightsSummarized = list()
+        yUnique = list()
+
+        for indexUnique, indices in duplicationDict.items():        
+
+            weightsSummarized.append(weightsPos[indices].sum())
+            yUnique.append(uniqueRes[0][indexUnique])
+
+        weightsSummarized, yUnique = np.array(weightsSummarized), np.array(yUnique)
+
+        #---
+
+        # indicesSort = np.argsort(yUnique)
+        # weightsSummarizedSorted, yUniqueSorted = weightsSummarized[indicesSort], yUnique[indicesSort]
+    
+    return weightsSummarizedSorted, yUniqueSorted
+
+# %% ../nbs/03_utils.ipynb 15
 # This function creates the cross-validation folds for every time series. Usually you'd want all test-observations 
 # of each fold to refer to the same time period, but this is impossible to ensure in the case of the two-step models,
 # because the regression of the non-zero observations will always contain data of different time points. For that
@@ -191,7 +268,7 @@ def groupedTimeSeriesSplit(data, kFolds, testLength, groupFeature, timeFeature):
 
     return foldsList
 
-# %% ../nbs/03_utils.ipynb 13
+# %% ../nbs/03_utils.ipynb 17
 def generateFinalOutput(dataOriginal, 
                         dataDecisions, 
                         targetVariable = 'demand', 

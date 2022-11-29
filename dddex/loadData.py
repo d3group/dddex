@@ -33,8 +33,8 @@ def loadDataYaz(testDays = 28, returnXY = True, daysToCut = 0):
     dataPath = pkg_resources.resource_stream(__name__, 'datasets/dataYaz.csv')
     data = pd.read_csv(dataPath)
     
-    # Cutting away daysToCut-many at end of data: Useful for evaluating
-    # evaluation on data in a rolled manner
+    # Cutting away daysToCut-many days at end of data: Useful for evaluating
+    # data in a rolled manner
     cutOffDate = data.dayIndex.max() - daysToCut
     data = data[data['dayIndex'] <= cutOffDate].reset_index(drop = True)
     
@@ -77,7 +77,7 @@ def loadDataYaz(testDays = 28, returnXY = True, daysToCut = 0):
     
     data = pd.concat([y, X], axis = 1)
                       
-    # Turn y from Series or dataframe to flatted array
+    # Turn y from Series or dataframe to flattened array
     y = np.ravel(y)
     
     #---
@@ -149,6 +149,7 @@ def add_lag_features(X, y, column_id, column_sort, feature_dict, time_windows):
                                      column_sort = "time", 
                                      min_timeshift = window[0]-1, 
                                      max_timeshift = window[1]-1,
+                                     n_jobs = 6,
                                      disable_progressbar = True)
         
         df_rolled['id'] = df_rolled['id'].apply(lambda x: (x[0], x[1] + 1))
@@ -158,6 +159,7 @@ def add_lag_features(X, y, column_id, column_sort, feature_dict, time_windows):
                                        column_id = "id", 
                                        column_sort = "time",
                                        default_fc_parameters = feature_dict,
+                                       n_jobs = 6,
                                        disable_progressbar = True)
 
         # Add time window to feature name for clarification 

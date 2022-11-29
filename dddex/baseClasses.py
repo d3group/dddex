@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 
 # %% auto 0
-__all__ = ['BaseWeightsBasedEstimator']
+__all__ = ['BaseWeightsBasedEstimator', 'BaseWeightsBasedEstimator_multivariate']
 
 # %% ../nbs/00_baseClasses.ipynb 7
 class BaseWeightsBasedEstimator(BaseEstimator):
@@ -131,3 +131,35 @@ class BaseWeightsBasedEstimator(BaseEstimator):
         
         return sampleMatrix
     
+
+# %% ../nbs/00_baseClasses.ipynb 11
+class BaseWeightsBasedEstimator_multivariate(BaseEstimator):
+    """ 
+    Base class that implements the 'prediction'-method for approaches based 
+    on a reweighting of the empirical distribution. This class is not supposed
+    to be used directly.
+    """
+    
+    def getWeights(self, 
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None,
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        """
+        Computes estimated conditional density for each sample specified by `X`. The concrete structure of each element 
+        of the returned list depends on the specified value of `outputType`:
+        
+        - **all**: An array with the same length as the number of training samples. Each entry represents the probability 
+          of each training sample.
+        - **onlyPositiveWeights**: A tuple. The first element of the tuple represents the probabilities and the second 
+          one the indices of the corresponding training sample. Only probalities greater than zero are returned. 
+          Note: This is the most memory and computationally efficient output type.
+        - **summarized**: A tuple. The first element of the tuple represents the probabilities and the second one the 
+          corresponding value of `yTrain`. The probabilities corresponding to identical values of `yTrain` are aggregated.
+        """
+        pass
+        

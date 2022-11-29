@@ -68,6 +68,13 @@ dataYaz, XTrain, yTrain, XTest, yTest = loadDataYaz(testDays = 28, returnXY = Tr
 LGBM = LGBMRegressor(n_jobs = 1)
 ```
 
+    > /home/kagu/dddex/dddex/loadData.py(41)loadDataYaz()
+         40     # data in a rolled manner
+    ---> 41     cutOffDate = data.dayIndex.max() - daysToCut
+         42     data = data[data['dayIndex'] <= cutOffDate].reset_index(drop = True)
+
+    ipdb>  q
+
 There are three parameters for
 [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex):
 
@@ -112,10 +119,6 @@ conditionalDensities = LSKDEx.getWeights(X = XTest,
 print(f"probabilities: {conditionalDensities[0][0]}")
 print(f"demand values: {conditionalDensities[0][1]}")
 ```
-
-    probabilities: [0.49 0.01 0.21 0.01 0.16 0.07 0.04 0.01]
-    demand values: [0.         0.01075269 0.04       0.04878049 0.08       0.12
-     0.16       0.2       ]
 
 Here, `conditionalDensities` is a list whose elements correspond to the
 samples specified via `X`. Every element contains a tuple, whose first
@@ -164,10 +167,6 @@ print(f"cumulated probabilities: {cumulativeDistributions[0][0]}")
 print(f"demand values: {cumulativeDistributions[0][1]}")
 ```
 
-    cumulated probabilities: [0.49 0.5  0.71 0.72 0.88 0.95 0.99 1.  ]
-    demand values: [0.         0.01075269 0.04       0.04878049 0.08       0.12
-     0.16       0.2       ]
-
 We can also compute estimations of quantiles using the `predict` method.
 The parameter *probs* specifies the quantiles we want to predict.
 
@@ -177,15 +176,6 @@ predRes = LSKDEx.predict(X = XTest,
                          probs = [0.1, 0.5, 0.75, 0.99])
 print(predRes.iloc[0:6, :].to_markdown())
 ```
-
-    |    |       0.1 |       0.5 |   0.75 |   0.99 |
-    |---:|----------:|----------:|-------:|-------:|
-    |  0 | 0         | 0.0107527 |   0.08 |   0.16 |
-    |  1 | 0         | 0.08      |   0.12 |   0.2  |
-    |  2 | 0.04      | 0.0967742 |   0.12 |   0.24 |
-    |  3 | 0.056338  | 0.12      |   0.16 |   0.28 |
-    |  4 | 0.04      | 0.0967742 |   0.12 |   0.24 |
-    |  5 | 0.0666667 | 0.16      |   0.2  |   0.32 |
 
 ## How to tune binSize parameter of LevelSetKDEx
 
@@ -254,15 +244,6 @@ print(f"Best binSize over all quantiles: {CV.bestBinSize}")
 CV.bestBinSize_perProb
 ```
 
-    Best binSize over all quantiles: 1000
-
-    0.01    1000
-    0.25      20
-    0.50     100
-    0.75     100
-    0.99    1000
-    dtype: int64
-
 The exact results are also stored as attributes. The easiest way to view
 the results is given via `cv_results`, which depicts the average results
 over all cross-validation folds:
@@ -270,13 +251,6 @@ over all cross-validation folds:
 ``` python
 print(CV.cv_results.to_markdown())
 ```
-
-    |      |    0.01 |     0.25 |      0.5 |     0.75 |    0.99 |
-    |-----:|--------:|---------:|---------:|---------:|--------:|
-    |   20 | 3.23956 | 0.849528 | 0.808262 | 0.854069 | 2.46195 |
-    |  100 | 1.65191 | 0.857026 | 0.803632 | 0.835323 | 1.81003 |
-    |  400 | 1.64183 | 0.860281 | 0.812806 | 0.837641 | 1.57534 |
-    | 1000 | 1.54641 | 0.869606 | 0.854369 | 0.88065  | 1.52644 |
 
 The attentive reader will certainly notice that values greater than 1
 imply that the respective model performed worse than SAA. This is, of
@@ -298,22 +272,6 @@ We can also access the results for every fold separately via
 CV.cv_results_raw
 ```
 
-    [          0.01      0.25      0.50      0.75      0.99
-     20    3.068598  0.854633  0.855041  0.953362  3.663885
-     100   1.626054  0.871327  0.833379  0.907911  2.591117
-     400   1.732673  0.860440  0.828015  0.890643  2.190292
-     1000  1.464534  0.873277  0.858563  0.891858  1.830334,
-               0.01      0.25      0.50      0.75      0.99
-     20    4.157297  0.841141  0.795929  0.830544  1.883320
-     100   1.752709  0.862970  0.812126  0.819613  1.416013
-     400   2.085622  0.887758  0.839370  0.859290  1.296445
-     1000  1.767468  0.869484  0.860893  0.876293  1.464460,
-               0.01      0.25      0.50      0.75      0.99
-     20    2.492787  0.852811  0.773815  0.778301  1.838642
-     100   1.576956  0.836781  0.765390  0.778446  1.422947
-     400   1.107203  0.832645  0.771034  0.762992  1.239275
-     1000  1.407221  0.866058  0.843651  0.873799  1.284521]
-
 The models with the best *binSize* parameter are automatically computed
 while running `fit` and can be accessed via `bestEstimatorLSx`. If
 `refitPerProb = True`, then `bestEstimatorLSx` is a dictionary whose
@@ -325,15 +283,6 @@ predRes = LSKDEx_best99.predict(X = XTest,
                                 probs = 0.99)
 print(predRes.iloc[0:6, ].to_markdown())
 ```
-
-    |    |   0.99 |
-    |---:|-------:|
-    |  0 |   0.32 |
-    |  1 |   0.32 |
-    |  2 |   0.32 |
-    |  3 |   0.32 |
-    |  4 |   0.32 |
-    |  5 |   0.32 |
 
 ## Benchmarks: Random Forest wSAA
 
@@ -384,10 +333,6 @@ print(f"probabilities: {conditionalDensities[0][0]}")
 print(f"demand values: {conditionalDensities[0][1]}")
 ```
 
-    probabilities: [0.07592857 0.15247619 0.24953463 0.15449675 0.21877381 0.09259957
-     0.03252381 0.01666667 0.007     ]
-    demand values: [0.   0.04 0.08 0.12 0.16 0.2  0.24 0.28 0.32]
-
 ``` python
 predRes = RF.predict(X = XTest,
                      probs = [0.01, 0.5, 0.99],
@@ -395,20 +340,9 @@ predRes = RF.predict(X = XTest,
 print(predRes.iloc[0:6, :].to_markdown())
 ```
 
-    |    |   0.01 |   0.5 |   0.99 |
-    |---:|-------:|------:|-------:|
-    |  0 |      0 |  0.12 |   0.28 |
-    |  1 |      0 |  0.12 |   0.32 |
-    |  2 |      0 |  0.12 |   0.32 |
-    |  3 |      0 |  0.16 |   0.32 |
-    |  4 |      0 |  0.12 |   0.32 |
-    |  5 |      0 |  0.2  |   0.32 |
-
 The original `predict` method of the `RandomForestRegressor` has been
 renamed to `pointPredict`:
 
 ``` python
 RF.pointPredict(X = XTest)[0:6]
 ```
-
-    array([0.1148, 0.12  , 0.1368, 0.1412, 0.1408, 0.1868])
