@@ -18,25 +18,27 @@ distribution. All those approaches take an arbitrary point forecaster as
 input and turn them into a new object that outputs an estimation of the
 conditional density based on the point predictions of the original point
 forecaster. The *x* in the name emphasizes that the approaches can be
-applied to any point forecaster. The approaches are being implemented
-via the two classes
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
-and
-[`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_knn)
-whose usage is explained in detail below.
+applied to any point forecaster. In this package several approaches are
+being implementing via the following classes:
 
-All models can be run easily with only a few lines of code and are
-designed to be compatible with the well known *Scikit-Learn* framework.
+- [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+- [`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_knn)
+- [`LevelSetKDEx_NN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_nn)
+- [`LevelSetKDEx_multivariate`](https://kaiguender.github.io/dddex/levelsetkdex_multivariate.html#levelsetkdex_multivariate)
+
+In the following we are going to work exclusively with the class
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+because the most important methods are all pretty much the same. All
+models can be run easily with only a few lines of code and are designed
+to be compatible with the well known *Scikit-Learn* framework.
 
 ## How to use: LevelSetKDEx
 
-To ensure compatibility with Scikit-Learn, as usual the classes
+To ensure compatibility with Scikit-Learn, as usual the class
 [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
-and
-[`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_knn)
-both implement a `fit` and `predict` method. As the purposes of both
-classes is to compute estimations of conditional densities, the
-`predict` method outputs p-quantiles rather than point forecasts.
+implements a `fit` and `predict` method. As the purposes of both classes
+is to compute estimations of conditional densities, the `predict` method
+outputs p-quantiles rather than point forecasts.
 
 Our choice of the class-names is supposed to be indicative of the
 underlying models: The name *LevelSet* stems from the fact that both
@@ -58,9 +60,11 @@ user. In our example we use the well known `LightGBMRegressor` as the
 underlying point predictor.
 
 ``` python
-from lightgbm import LGBMRegressor
-from dddex.levelSetKDEx import LevelSetKDEx
+from dddex.levelSetKDEx import LevelSetKDEx, LevelSetKDEx_kNN, LevelSetKDEx_NN
+from dddex.levelSetKDEx_multivariate import LevelSetKDEx_multivariate
+
 from dddex.loadData import loadDataYaz
+from lightgbm import LGBMRegressor
 ```
 
 ``` python
@@ -384,9 +388,9 @@ print(f"probabilities: {conditionalDensities[0][0]}")
 print(f"demand values: {conditionalDensities[0][1]}")
 ```
 
-    probabilities: [0.07227312 0.21611526 0.31397337 0.10220577 0.15030851 0.08733405
-     0.03911998 0.01192752 0.00340909 0.00083333 0.0025    ]
-    demand values: [0.   0.04 0.08 0.12 0.16 0.2  0.24 0.28 0.32 0.36 0.44]
+    probabilities: [0.05339683 0.21071739 0.21882087 0.16315079 0.23533464 0.06696032
+     0.03782118 0.00555556 0.00824242]
+    demand values: [0.   0.04 0.08 0.12 0.16 0.2  0.24 0.28 0.32]
 
 ``` python
 predRes = RF.predict(X = XTest,
@@ -395,14 +399,14 @@ predRes = RF.predict(X = XTest,
 print(predRes.iloc[0:6, :].to_markdown())
 ```
 
-    |    |   0.01 |   0.5 |    0.99 |
-    |---:|-------:|------:|--------:|
-    |  0 |      0 |  0.08 | 0.28    |
-    |  1 |      0 |  0.12 | 0.44    |
-    |  2 |      0 |  0.12 | 0.28    |
-    |  3 |      0 |  0.16 | 0.47561 |
-    |  4 |      0 |  0.16 | 0.32    |
-    |  5 |      0 |  0.2  | 0.32    |
+    |    |   0.01 |   0.5 |   0.99 |
+    |---:|-------:|------:|-------:|
+    |  0 |   0    |  0.12 |   0.28 |
+    |  1 |   0    |  0.12 |   0.36 |
+    |  2 |   0.04 |  0.12 |   0.36 |
+    |  3 |   0    |  0.16 |   0.32 |
+    |  4 |   0    |  0.12 |   0.32 |
+    |  5 |   0    |  0.2  |   0.32 |
 
 The original `predict` method of the `RandomForestRegressor` has been
 renamed to `pointPredict`:
@@ -411,4 +415,4 @@ renamed to `pointPredict`:
 RF.pointPredict(X = XTest)[0:6]
 ```
 
-    array([0.1008   , 0.112    , 0.1292   , 0.1375561, 0.1648   , 0.2012   ])
+    array([0.106 , 0.1244, 0.14  , 0.1528, 0.132 , 0.1984])
