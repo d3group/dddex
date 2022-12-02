@@ -60,7 +60,7 @@ user. In our example we use the well known `LightGBMRegressor` as the
 underlying point predictor.
 
 ``` python
-from dddex.levelSetKDEx import LevelSetKDEx, LevelSetKDEx_kNN, LevelSetKDEx_NN
+from dddex.levelSetKDEx_univariate import LevelSetKDEx, LevelSetKDEx_kNN, LevelSetKDEx_NN
 from dddex.levelSetKDEx_multivariate import LevelSetKDEx_multivariate
 
 from dddex.loadData import loadDataYaz
@@ -193,13 +193,11 @@ print(predRes.iloc[0:6, :].to_markdown())
 
 ## How to tune binSize parameter of LevelSetKDEx
 
-`dddex` also comes with the class
-[`binSizeCV`](https://kaiguender.github.io/dddex/levelsetkdex.html#binsizecv)
-that tunes the important *binSize* parameter via cross-validation in an
-efficient manner. The class is designed in a very similar fashion to the
-cross-validation classes of Scikit-Learn. As such, at first
-[`binSizeCV`](https://kaiguender.github.io/dddex/levelsetkdex.html#binsizecv)is
-initialized with all the settings for the cross-validation.
+`dddex` also comes with the class `binSizeCV` that tunes the important
+*binSize* parameter via cross-validation in an efficient manner. The
+class is designed in a very similar fashion to the cross-validation
+classes of Scikit-Learn. As such, at first `binSizeCV`is initialized
+with all the settings for the cross-validation.
 
 - **estimatorLSx**: Either an object of class
   [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
@@ -225,8 +223,7 @@ of the pinball loss in comparison to the quantile estimations generated
 by *SAA* (Sample Average Approximation) for every quantile.
 
 ``` python
-from dddex.levelSetKDEx import binSizeCV
-from dddex.utils import groupedTimeSeriesSplit
+from dddex.crossValidation import groupedTimeSeriesSplit, QuantileCrossValidation
 
 dataTrain = dataYaz[dataYaz['label'] == 'train']
 cvFolds = groupedTimeSeriesSplit(data = dataTrain, 
@@ -235,16 +232,16 @@ cvFolds = groupedTimeSeriesSplit(data = dataTrain,
                                  groupFeature = 'id',
                                  timeFeature = 'dayIndex')
 
-LSKDEx = LevelSetKDEx(estimator = LGBM,
-                      binSize = None,
-                      weightsByDistance = False)
+LSKDEx = LevelSetKDEx(estimator = LGBM)
+paramGrid = {'binSize': [20, 100, 400, 1000],
+             'weightsByDistance': [True, False]}
 
-CV = binSizeCV(estimatorLSx = LSKDEx,
-               cvFolds = cvFolds,
-               binSizeGrid = [20, 100, 400, 1000],
-               probs = [0.01, 0.25, 0.5, 0.75, 0.99],
-               refitPerProb = True,
-               n_jobs = 3)
+CV = QuantileCrossValidation(quantileEstimator = LSKDEx,
+                             parameterGrid = paramGrid,
+                             cvFolds = cvFolds,
+                             probs = [0.01, 0.25, 0.5, 0.75, 0.99],
+                             refitPerProb = True,
+                             n_jobs = 3)
 
 CV.fit(X = XTrain, y = yTrain)
 ```
@@ -254,33 +251,36 @@ separately or for all quantiles at once by computing the average cost
 reduction over all quantiles.
 
 ``` python
-print(f"Best binSize over all quantiles: {CV.bestBinSize}")
-CV.bestBinSize_perProb
+print(f"Best binSize over all quantiles: {CV.bestParams}")
+CV.bestParams_perProb
 ```
 
-    Best binSize over all quantiles: 1000
+    Best binSize over all quantiles: {'binSize': 1000, 'weightsByDistance': False}
 
-    0.01    1000
-    0.25      20
-    0.50     100
-    0.75     100
-    0.99    1000
-    dtype: int64
+    {0.01: {'binSize': 1000, 'weightsByDistance': False},
+     0.25: {'binSize': 20, 'weightsByDistance': False},
+     0.5: {'binSize': 100, 'weightsByDistance': False},
+     0.75: {'binSize': 100, 'weightsByDistance': False},
+     0.99: {'binSize': 1000, 'weightsByDistance': False}}
 
 The exact results are also stored as attributes. The easiest way to view
 the results is given via `cv_results`, which depicts the average results
 over all cross-validation folds:
 
 ``` python
-print(CV.cv_results.to_markdown())
+print(CV.cvResults.to_markdown())
 ```
 
-    |      |    0.01 |     0.25 |      0.5 |     0.75 |    0.99 |
-    |-----:|--------:|---------:|---------:|---------:|--------:|
-    |   20 | 3.23956 | 0.849528 | 0.808262 | 0.854069 | 2.46195 |
-    |  100 | 1.65191 | 0.857026 | 0.803632 | 0.835323 | 1.81003 |
-    |  400 | 1.64183 | 0.860281 | 0.812806 | 0.837641 | 1.57534 |
-    | 1000 | 1.54641 | 0.869606 | 0.854369 | 0.88065  | 1.52644 |
+    |               |    0.01 |     0.25 |      0.5 |     0.75 |    0.99 |
+    |:--------------|--------:|---------:|---------:|---------:|--------:|
+    | (20, True)    | 3.79553 | 0.946626 | 0.89631  | 0.974659 | 2.98365 |
+    | (20, False)   | 3.23956 | 0.849528 | 0.808262 | 0.854069 | 2.46195 |
+    | (100, True)   | 3.11384 | 0.92145  | 0.871266 | 0.922703 | 2.22249 |
+    | (100, False)  | 1.65191 | 0.857026 | 0.803632 | 0.835323 | 1.81003 |
+    | (400, True)   | 2.57563 | 0.908214 | 0.851471 | 0.900311 | 2.03445 |
+    | (400, False)  | 1.64183 | 0.860281 | 0.812806 | 0.837641 | 1.57534 |
+    | (1000, True)  | 2.34575 | 0.893628 | 0.843721 | 0.888143 | 1.82368 |
+    | (1000, False) | 1.54641 | 0.869606 | 0.854369 | 0.88065  | 1.52644 |
 
 The attentive reader will certainly notice that values greater than 1
 imply that the respective model performed worse than SAA. This is, of
@@ -299,24 +299,39 @@ We can also access the results for every fold separately via
 `cv_results_raw`, which is a list with one entry per fold:
 
 ``` python
-CV.cv_results_raw
+CV.cvResults_raw
 ```
 
-    [          0.01      0.25      0.50      0.75      0.99
-     20    3.068598  0.854633  0.855041  0.953362  3.663885
-     100   1.626054  0.871327  0.833379  0.907911  2.591117
-     400   1.732673  0.860440  0.828015  0.890643  2.190292
-     1000  1.464534  0.873277  0.858563  0.891858  1.830334,
-               0.01      0.25      0.50      0.75      0.99
-     20    4.157297  0.841141  0.795929  0.830544  1.883320
-     100   1.752709  0.862970  0.812126  0.819613  1.416013
-     400   2.085622  0.887758  0.839370  0.859290  1.296445
-     1000  1.767468  0.869484  0.860893  0.876293  1.464460,
-               0.01      0.25      0.50      0.75      0.99
-     20    2.492787  0.852811  0.773815  0.778301  1.838642
-     100   1.576956  0.836781  0.765390  0.778446  1.422947
-     400   1.107203  0.832645  0.771034  0.762992  1.239275
-     1000  1.407221  0.866058  0.843651  0.873799  1.284521]
+    [                               0.01      0.25      0.50      0.75      0.99
+     binSize weightsByDistance                                                  
+     20      True               3.730363  0.977152  0.949944  1.093261  4.590650
+             False              3.068598  0.854633  0.855041  0.953362  3.663885
+     100     True               3.359961  0.945510  0.922778  1.027477  3.475501
+             False              1.626054  0.871327  0.833379  0.907911  2.591117
+     400     True               2.663854  0.928036  0.907505  0.995238  3.149022
+             False              1.732673  0.860440  0.828015  0.890643  2.190292
+     1000    True               2.463221  0.914308  0.897978  0.979345  2.753553
+             False              1.464534  0.873277  0.858563  0.891858  1.830334,
+                                    0.01      0.25      0.50      0.75      0.99
+     binSize weightsByDistance                                                  
+     20      True               4.725018  0.958236  0.891472  0.914408  2.253200
+             False              4.157297  0.841141  0.795929  0.830544  1.883320
+     100     True               3.687090  0.933531  0.876655  0.875718  1.551640
+             False              1.752709  0.862970  0.812126  0.819613  1.416013
+     400     True               3.061210  0.920190  0.851794  0.873496  1.464974
+             False              2.085622  0.887758  0.839370  0.859290  1.296445
+     1000    True               2.784076  0.903801  0.840009  0.856845  1.381658
+             False              1.767468  0.869484  0.860893  0.876293  1.464460,
+                                    0.01      0.25      0.50      0.75      0.99
+     binSize weightsByDistance                                                  
+     20      True               2.931208  0.904490  0.847513  0.916307  2.107091
+             False              2.492787  0.852811  0.773815  0.778301  1.838642
+     100     True               2.294471  0.885308  0.814365  0.864913  1.640339
+             False              1.576956  0.836781  0.765390  0.778446  1.422947
+     400     True               2.001828  0.876417  0.795114  0.832198  1.489340
+             False              1.107203  0.832645  0.771034  0.762992  1.239275
+     1000    True               1.789944  0.862776  0.793177  0.828237  1.335825
+             False              1.407221  0.866058  0.843651  0.873799  1.284521]
 
 The models with the best *binSize* parameter are automatically computed
 while running `fit` and can be accessed via `bestEstimatorLSx`. If
@@ -324,7 +339,7 @@ while running `fit` and can be accessed via `bestEstimatorLSx`. If
 keys are the probabilities specified via the paramater *probs*.
 
 ``` python
-LSKDEx_best99 = CV.bestEstimatorLSx[0.99]
+LSKDEx_best99 = CV.bestEstimator_perProb[0.99]
 predRes = LSKDEx_best99.predict(X = XTest,
                                 probs = 0.99)
 print(predRes.iloc[0:6, ].to_markdown())
@@ -388,10 +403,6 @@ print(f"probabilities: {conditionalDensities[0][0]}")
 print(f"demand values: {conditionalDensities[0][1]}")
 ```
 
-    probabilities: [0.05339683 0.21071739 0.21882087 0.16315079 0.23533464 0.06696032
-     0.03782118 0.00555556 0.00824242]
-    demand values: [0.   0.04 0.08 0.12 0.16 0.2  0.24 0.28 0.32]
-
 ``` python
 predRes = RF.predict(X = XTest,
                      probs = [0.01, 0.5, 0.99],
@@ -399,20 +410,9 @@ predRes = RF.predict(X = XTest,
 print(predRes.iloc[0:6, :].to_markdown())
 ```
 
-    |    |   0.01 |   0.5 |   0.99 |
-    |---:|-------:|------:|-------:|
-    |  0 |   0    |  0.12 |   0.28 |
-    |  1 |   0    |  0.12 |   0.36 |
-    |  2 |   0.04 |  0.12 |   0.36 |
-    |  3 |   0    |  0.16 |   0.32 |
-    |  4 |   0    |  0.12 |   0.32 |
-    |  5 |   0    |  0.2  |   0.32 |
-
 The original `predict` method of the `RandomForestRegressor` has been
 renamed to `pointPredict`:
 
 ``` python
 RF.pointPredict(X = XTest)[0:6]
 ```
-
-    array([0.106 , 0.1244, 0.14  , 0.1528, 0.132 , 0.1984])
