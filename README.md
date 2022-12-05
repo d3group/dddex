@@ -21,13 +21,13 @@ forecaster. The *x* in the name emphasizes that the approaches can be
 applied to any point forecaster. In this package several approaches are
 being implementing via the following classes:
 
-- [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
-- [`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_knn)
-- [`LevelSetKDEx_NN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_nn)
+- [`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex)
+- [`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex_knn)
+- [`LevelSetKDEx_NN`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex_nn)
 - [`LevelSetKDEx_multivariate`](https://kaiguender.github.io/dddex/levelsetkdex_multivariate.html#levelsetkdex_multivariate)
 
 In the following we are going to work exclusively with the class
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex)
 because the most important methods are all pretty much the same. All
 models can be run easily with only a few lines of code and are designed
 to be compatible with the well known *Scikit-Learn* framework.
@@ -35,7 +35,7 @@ to be compatible with the well known *Scikit-Learn* framework.
 ## How to use: LevelSetKDEx
 
 To ensure compatibility with Scikit-Learn, as usual the class
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex)
 implements a `fit` and `predict` method. As the purposes of both classes
 is to compute estimations of conditional densities, the `predict` method
 outputs p-quantiles rather than point forecasts.
@@ -49,12 +49,12 @@ Estimator* and the *x* yet again signals that the classes can be
 initialized with any point forecasting model.
 
 In the following, we demonstrate how to use the class
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex)
 to compute estimations of the conditional densities and quantiles for
 the [Yaz Data
 Set](https://opimwue.github.io/ddop/modules/auto_generated/ddop.datasets.load_yaz.html#ddop.datasets.load_yaz).
 As explained above,
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex)
 is always based on a point forecaster that is being specified by the
 user. In our example we use the well known `LightGBMRegressor` as the
 underlying point predictor.
@@ -73,7 +73,7 @@ LGBM = LGBMRegressor(n_jobs = 1)
 ```
 
 There are three parameters for
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex):
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex):
 
 - **estimator**: A point forecasting model that must have a `predict`
   method.
@@ -92,7 +92,7 @@ LSKDEx = LevelSetKDEx(estimator = LGBM,
 
 There is no need to run `fit` on the point forecasting model before
 initializing *LevelSetKDEx*, because the `fit` method of
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex)
 automatically checks whether the provided model has been fitted already
 or not and runs the respective `fit` method of the point forecaster if
 needed.
@@ -287,12 +287,12 @@ imply that the respective model performed worse than SAA. This is, of
 course, simply due to the fact, that we didn’t tune the hyperparameters
 of the underlying `LGBMRegressor` point predictor and instead used the
 default parameter values. The
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)classes
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex)classes
 are able to produce highly accurate density estimations, but are
 obviously not able to turn a terrible point predictor into a highly
 performant conditional density estimator. The performance of the
 underlying point predictor and the constructed
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex)
 model go hand in hand.
 
 We can also access the results for every fold separately via
@@ -358,7 +358,7 @@ print(predRes.iloc[0:6, ].to_markdown())
 
 The `dddex` package also contains useful non-parametric benchmark models
 to compare the performance of the
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex)
 models to other state of the art non-parametric models capable of
 generating conditional density estimations. In a [meta analysis
 conducted by S. Butler et
@@ -388,9 +388,9 @@ RF.fit(X = XTrain, y = yTrain)
 ```
 
 Identical to the
-[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex)
+[`LevelSetKDEx`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex)
 and
-[`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex.html#levelsetkdex_knn)
+[`LevelSetKDEx_kNN`](https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex_knn)
 classes, an identical method called `getWeights` and `predict`are
 implemented to compute conditional density estimations and quantiles.
 The output is the same as before.

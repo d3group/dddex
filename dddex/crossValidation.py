@@ -16,6 +16,7 @@ import copy
 from sklearn.model_selection import ParameterGrid, ParameterSampler
 from sklearn.base import clone
 
+from .levelSetKDEx_univariate import BaseLSx
 from .wSAA import SampleAverageApproximation
 
 # %% auto 0
@@ -34,25 +35,51 @@ class QuantileCrossValidation:
                  # a `set_params` and `fit` method.
                  quantileEstimator, 
                  cvFolds, # An iterable yielding (train, test) splits as arrays of indices.
-                 parameterGrid: dict,
-                 probs: list=[i / 100 for i in range(1, 100, 1)], # list or array of floats between 0 and 1. p-quantiles being predicted to evaluate performance of LSF.
+                 # dict or list of dicts with parameters names (`str`) as keys and distributions
+                 # or lists of parameters to try. Distributions must provide a ``rvs``
+                 # method for sampling (such as those from scipy.stats.distributions).
+                 parameterGrid: dict, 
+                 randomSearch: bool=False, # Whether to use randomized search or grid search
+                 # Number of parameter settings that are sampled if `randomSearch == True`. 
+                 # n_iter trades off runtime vs quality of the solution.
+                 nIter: int=None,
+                 # iterable of floats between 0 and 1. These determine the p-quantiles being predicted 
+                 # to evaluate performance of each parameter setting.
+                 probs: list=[i / 100 for i in range(1, 100, 1)],
                  # If True, for each p-quantile a fitted LSF with best binSize to predict it is returned. 
                  # Otherwise only one LSF is returned that is best over all probs.
                  refitPerProb: bool=False, 
-                 n_jobs: int=None, # number of folds being computed in parallel.
+                 n_jobs: int=None, # Number of jobs to run in parallel.
+                 # Pseudo random number generator state used for random uniform sampling of parameter candidate values.
+                 # Pass an int for reproducible output across multiple function calls.
+                 random_state: int=None, 
                  ):
         
         # CHECKS  
         # if not isinstance(estimatorLSx, (BaseLSx)):
         #     raise ValueError("'estimatorLSx' has to be a 'LevelSetKDEx', 'LevelSetKDEx_NN_new' or a 'LevelSetKDEx_kNN' object!")               
-            
+        
         if np.any(np.array(probs) > 1) or np.any(np.array(probs) < 0): 
             raise ValueError("probs must only contain numbers between 0 and 1!") 
         
         #---
         
+        if randomSearch:
+            self.parameterGrid = ParameterSampler(param_distributions = parameterGrid,
+                                                  n_iter = nIter,
+                                                  random_state = random_state)
+            
+            self.randomSearch = True
+            self.nIter = n_iter
+            self.random_state = random_state
+            
+        else:
+            self.parameterGrid = ParameterGrid(parameterGrid)
+            self.randomSearch = False
+            
+        #---
+        
         self.quantileEstimator = copy.deepcopy(quantileEstimator)
-        self.parameterGrid = ParameterGrid(parameterGrid)
         self.cvFolds = cvFolds
         self.probs = probs
         self.refitPerProb = refitPerProb
@@ -140,7 +167,7 @@ def fit(self: QuantileCrossValidation,
 
     self.bestEstimator = quantileEstimator
 
-# %% ../nbs/04_CrossValidation.ipynb 10
+# %% ../nbs/04_CrossValidation.ipynb 9
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
@@ -203,7 +230,7 @@ def getFoldScore(quantileEstimator, parameterGrid, cvFold, probs, X, y):
     
     return costsDf
 
-# %% ../nbs/04_CrossValidation.ipynb 12
+# %% ../nbs/04_CrossValidation.ipynb 11
 class CrossValidationLSx_combined:
     """
     Class to efficiently tune the `binSize` parameter of all Level-Set based models.
@@ -212,27 +239,85 @@ class CrossValidationLSx_combined:
     def __init__(self,
                  estimatorLSx, # A Level-Set based model.
                  cvFolds, # An iterable yielding (train, test) splits as arrays of indices.
+                 # dict or list of dicts with LSx parameters names (`str`) as keys and distributions
+                 # or lists of parameters to try. Distributions must provide a ``rvs``
+                 # method for sampling (such as those from scipy.stats.distributions).
                  parameterGridLSx: dict,
+                 # dict or list of dicts with parameters names (`str`) of the point predictor as keys
+                 # and distributions or lists of parameters to try. Distributions must provide a ``rvs``
+                 # method for sampling (such as those from scipy.stats.distributions).
                  parameterGridEstimator: dict,
-                 probs: list=[i / 100 for i in range(1, 100, 1)], # list or array of floats between 0 and 1. p-quantiles being predicted to evaluate performance of LSF.
+                 randomSearchLSx: bool=False, # Whether to use randomized search or grid search for the LSx parameters.
+                 # Whether to use randomized search or grid search for the point predictor parameters.
+                 randomSearchEstimator: bool=False, 
+                 # Number of parameter settings of the LSx model that are sampled if `randomSearchLSx == True`. 
+                 # LSx parameter settings are usually relatively cheap to evaluate, so all sampled LSx paramater settings
+                 # are evaluated for each point predictor parameter setting.
+                 nIterLSx: int=None,
+                 # Number of parameter settings of the underlying point predictor that are sampled if 
+                 # `randomSearchEstimator == True`. nIterEstimator trades off runtime vs quality of the solution.
+                 nIterEstimator: int=None,
+                 # iterable of floats between 0 and 1. These determine the p-quantiles being predicted 
+                 # to evaluate performance of each parameter setting.
+                 probs: list=[i / 100 for i in range(1, 100, 1)], 
                  # If True, for each p-quantile a fitted LSF with best binSize to predict it is returned. 
                  # Otherwise only one LSF is returned that is best over all probs.
                  refitPerProb: bool=False, 
                  n_jobs: int=None, # number of folds being computed in parallel.
+                 # Pseudo random number generator state used for random uniform sampling of parameter candidate values.
+                 # Pass an int for reproducible output across multiple function calls.
+                 random_state: int=None,
                  ):
         
         # CHECKS  
         if not isinstance(estimatorLSx, (BaseLSx)):
-            raise ValueError("'estimatorLSx' has to be a 'LevelSetKDEx', 'LevelSetKDEx_NN_new' or a 'LevelSetKDEx_kNN' object!")               
+            raise ValueError("'estimatorLSx' has to be a 'LevelSetKDEx', 'LevelSetKDEx_NN_new' or a 'LevelSetKDEx_kNN' object!")
+            
+        if len(parameterGridEstimator) == 0:
+            raise ValueError("No parameter candidates have been specified for the point predictor. If you want to only evaluate"
+                             "parameter settings of the LSx-estimator itself, use the class `QuantileCrossValidation` instead or"
+                             "provide a fixed parameter setting for the point predictor via `parameterGridEstimator`.")
+            
+        if len(parameterGridLSx) == 0:
+            raise ValueError("No parameter candidates have been specified for the LSx model! If you want to only evaluate"
+                             "parameter settings of the point predictor, use standard cross-validation classes or instead"
+                             "provide a fixed parameter setting for the LS model via `parameterGridLSx`.")
             
         if np.any(np.array(probs) > 1) or np.any(np.array(probs) < 0): 
-            raise ValueError("probs must only contain numbers between 0 and 1!") 
+            raise ValueError("probs must only contain numbers between 0 and 1!")
         
         #---
         
+        if randomSearchLSx:
+            self.parameterGridLSx = ParameterSampler(param_distributions = parameterGridLSx,
+                                                     n_iter = nIterLSx,
+                                                     random_state = random_state)
+            self.randomSearchLSx = True
+            self.nIterLsx = nIterLSx
+            self.random_state = random_state
+        
+        else:
+            self.parameterGridLSx = ParameterGrid(parameterGridLSx)
+            self.randomSearchLSx = False
+            
+        
+        if randomSearchEstimator:
+            
+            self.parameterGridEstimator = ParameterSampler(param_distributions = parameterGridEstimator,
+                                                           n_iter = nIterEstimator,
+                                                           random_state = random_state)
+            self.randomSearchEstimator = True
+            self.nIterEstimator = nIterEstimator
+            self.random_state = random_state
+            
+        else:
+            self.parameterGridEstimator = ParameterGrid(parameterGridEstimator)
+            self.randomSearchEstimator = False
+            
+        #---
+        
         self.estimatorLSx = copy.deepcopy(estimatorLSx)
-        self.parameterGridLSx = ParameterGrid(parameterGridLSx)
-        self.parameterGridEstimator = ParameterGrid(parameterGridEstimator)
+        
         self.cvFolds = cvFolds
         self.probs = probs
         self.refitPerProb = refitPerProb
@@ -246,7 +331,7 @@ class CrossValidationLSx_combined:
         self.cvResults_raw = None
         
 
-# %% ../nbs/04_CrossValidation.ipynb 13
+# %% ../nbs/04_CrossValidation.ipynb 12
 @patch
 def fit(self: CrossValidationLSx_combined, 
         X: np.ndarray, # Feature matrix (has to work with the folds specified via `cvFolds`)
@@ -360,7 +445,7 @@ def fit(self: CrossValidationLSx_combined,
 
     self.bestEstimatorLSx = estimatorLSx
 
-# %% ../nbs/04_CrossValidation.ipynb 16
+# %% ../nbs/04_CrossValidation.ipynb 15
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
@@ -443,7 +528,7 @@ def getFoldScore_combined(estimatorLSx, parameterGridLSx, parameterGridEstimator
     
     return costsDf
 
-# %% ../nbs/04_CrossValidation.ipynb 19
+# %% ../nbs/04_CrossValidation.ipynb 18
 def getCostRatio(decisions, decisionsSAA, yTest, prob):
 
     # Newsvendor Costs of our model
@@ -470,7 +555,7 @@ def getCostRatio(decisions, decisionsSAA, yTest, prob):
     
     return costRatio
 
-# %% ../nbs/04_CrossValidation.ipynb 21
+# %% ../nbs/04_CrossValidation.ipynb 20
 # This function creates the cross-validation folds for every time series. Usually you'd want all test-observations 
 # of each fold to refer to the same time period, but this is impossible to ensure in the case of the two-step models,
 # because the regression of the non-zero observations will always contain data of different time points. For that
