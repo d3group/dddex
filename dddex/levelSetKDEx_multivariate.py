@@ -20,8 +20,7 @@ from joblib import Parallel, delayed, dump, load
 import copy
 import warnings
 
-from .baseClasses import BaseWeightsBasedEstimator_multivariate
-from .levelSetKDEx_univariate import BaseLSx
+from .baseClasses import BaseLSx, BaseWeightsBasedEstimator_multivariate
 from .wSAA import SampleAverageApproximation
 from .utils import restructureWeightsDataList_multivariate
 

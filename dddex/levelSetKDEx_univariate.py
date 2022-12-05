@@ -11,69 +11,18 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
 from collections import defaultdict, Counter, deque
-import copy
 import warnings
 
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
-from .baseClasses import BaseWeightsBasedEstimator
+from .baseClasses import BaseLSx, BaseWeightsBasedEstimator
 from .utils import restructureWeightsDataList
 
 # %% auto 0
-__all__ = ['BaseLSx', 'LevelSetKDEx', 'generateBins', 'LevelSetKDEx_kNN', 'LevelSetKDEx_NN', 'getNeighbors', 'getNeighborsTest',
+__all__ = ['LevelSetKDEx', 'generateBins', 'LevelSetKDEx_kNN', 'LevelSetKDEx_NN', 'getNeighbors', 'getNeighborsTest',
            'getKernelValues']
 
 # %% ../nbs/01_levelSetKDEx_univariate.ipynb 7
-class BaseLSx:
-    """
-    Base class for the Level-Set based approaches. This class is not supposed to be used directly.
-    Use derived classes instead.
-    """
-    
-    def __init__(self, 
-                 estimator, # Model with a `fit` and `predict` method (implementing the scikit-learn estimator interface).
-                 binSize: int=None, # Number of training samples considered for creating weights.
-                 # Determines behaviour of method `getWeights`. If False, all weights receive the same  
-                 # value. If True, the distance of the point forecasts is taking into account.
-                 weightsByDistance: bool=False,  
-                 ):
-        
-        if not (hasattr(estimator, 'predict') and callable(estimator.predict)):
-            raise ValueError("'estimator' has to have a 'predict'-method!")
-            
-        if not (isinstance(binSize, (int, np.integer)) or binSize is None):
-            raise ValueError("'binSize' has to be an integer!")
-            
-        self.estimator = copy.deepcopy(estimator)
-        self.binSize = binSize
-        self.weightsByDistance = weightsByDistance      
-        
-    #---
-    
-    def pointPredict(self: BaseLSx, 
-                     # Feature matrix for which point predictions are computed based
-                     # on the point forecasting model specified via `estimator`.
-                     X: np.ndarray 
-                     ):
-        
-        return self.estimator.predict(X)
-    
-    #---
-    
-    def refitPointEstimator(self: BaseLSx, 
-                            X: np.ndarray, # Input feature matrix
-                            y: np.ndarray, # Target values
-                            **kwargs):
-        
-        try:
-            self.estimator.set_params(**kwargs)
-        except:
-            raise NotImplementedError("The 'estimator' object has no 'set_params' method, so the"
-                                      "provided parameters via **kwargs can't be set!")
-        else:
-            setattr(self, 'estimator', self.estimator.fit(X = X, y = y))
-
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 12
 class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
     """
     `LevelSetKDEx` turns any point forecasting model into an estimator of the underlying conditional density.
@@ -222,7 +171,7 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
         return weightsDataList
     
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 16
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 11
 def generateBins(binSize: int, # Size of the bins of values of `yPred` being grouped together.
                  yPred: np.ndarray, # 1-dimensional array of predicted values.
                  ):
@@ -263,7 +212,7 @@ def generateBins(binSize: int, # Size of the bins of values of `yPred` being gro
     
     return indicesPerBin, lowerBoundPerBin
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 19
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 14
 class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
     """
      `LevelSetKDEx_kNN` turns any point predictor that has a .predict-method 
@@ -440,7 +389,7 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
         return weightsDataList
       
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 23
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 18
 class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
     """
      `LevelSetKDEx_kNN` turns any point predictor that has a .predict-method 
@@ -573,7 +522,7 @@ class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
         return weightsDataList
       
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 25
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 20
 def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being grouped together.
                  yPred: np.ndarray, # 1-dimensional array of predicted values.
                  ):
@@ -699,7 +648,7 @@ def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being gro
  
     return neighborsPerPred, np.array(neighborsRemoved), np.array(neighborsAdded)
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 27
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 22
 def getNeighborsTest(binSize: int, # Size of the bins of values of `yPred` being grouped together.
                      yPred: np.ndarray, # 1-dimensional array of predicted values.
                      yPredTrain: np.ndarray, # 1-dimensional array of predicted train values.
@@ -795,7 +744,7 @@ def getNeighborsTest(binSize: int, # Size of the bins of values of `yPred` being
  
     return neighborsPerPred
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 29
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 24
 def getKernelValues(yPred,
                     yPredTrain,
                     neighborsDictTest,

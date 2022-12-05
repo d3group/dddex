@@ -16,7 +16,7 @@ import copy
 from sklearn.model_selection import ParameterGrid, ParameterSampler
 from sklearn.base import clone
 
-from .levelSetKDEx_univariate import BaseLSx
+from .baseClasses import BaseLSx
 from .wSAA import SampleAverageApproximation
 
 # %% auto 0

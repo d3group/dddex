@@ -7,17 +7,68 @@ from fastcore.test import *
 from fastcore.utils import *
 from fastcore.script import *
 
-from sklearn.base import BaseEstimator
-from numpy.random import uniform
-
-from abc import ABC, abstractmethod
 import pandas as pd
 import numpy as np
+from numpy.random import uniform
+from sklearn.base import BaseEstimator
+
+import copy
+from abc import ABC, abstractmethod
 
 # %% auto 0
-__all__ = ['BaseWeightsBasedEstimator', 'BaseWeightsBasedEstimator_multivariate']
+__all__ = ['BaseLSx', 'BaseWeightsBasedEstimator', 'BaseWeightsBasedEstimator_multivariate']
 
 # %% ../nbs/00_baseClasses.ipynb 7
+class BaseLSx:
+    """
+    Base class for the Level-Set based approaches. This class is not supposed to be used directly.
+    Use derived classes instead.
+    """
+    
+    def __init__(self, 
+                 estimator, # Model with a `fit` and `predict` method (implementing the scikit-learn estimator interface).
+                 binSize: int=None, # Number of training samples considered for creating weights.
+                 # Determines behaviour of method `getWeights`. If False, all weights receive the same  
+                 # value. If True, the distance of the point forecasts is taking into account.
+                 weightsByDistance: bool=False,  
+                 ):
+        
+        if not (hasattr(estimator, 'predict') and callable(estimator.predict)):
+            raise ValueError("'estimator' has to have a 'predict'-method!")
+            
+        if not (isinstance(binSize, (int, np.integer)) or binSize is None):
+            raise ValueError("'binSize' has to be an integer!")
+            
+        self.estimator = copy.deepcopy(estimator)
+        self.binSize = binSize
+        self.weightsByDistance = weightsByDistance      
+        
+    #---
+    
+    def pointPredict(self: BaseLSx, 
+                     # Feature matrix for which point predictions are computed based
+                     # on the point forecasting model specified via `estimator`.
+                     X: np.ndarray 
+                     ):
+        
+        return self.estimator.predict(X)
+    
+    #---
+    
+    def refitPointEstimator(self: BaseLSx, 
+                            X: np.ndarray, # Input feature matrix
+                            y: np.ndarray, # Target values
+                            **kwargs):
+        
+        try:
+            self.estimator.set_params(**kwargs)
+        except:
+            raise NotImplementedError("The 'estimator' object has no 'set_params' method, so the"
+                                      "provided parameters via **kwargs can't be set!")
+        else:
+            setattr(self, 'estimator', self.estimator.fit(X = X, y = y))
+
+# %% ../nbs/00_baseClasses.ipynb 12
 class BaseWeightsBasedEstimator(BaseEstimator):
     """ 
     Base class that implements the 'prediction'-method for approaches based 
@@ -132,7 +183,7 @@ class BaseWeightsBasedEstimator(BaseEstimator):
         return sampleMatrix
     
 
-# %% ../nbs/00_baseClasses.ipynb 11
+# %% ../nbs/00_baseClasses.ipynb 16
 class BaseWeightsBasedEstimator_multivariate(BaseEstimator):
     """ 
     Base class that implements the 'prediction'-method for approaches based 
