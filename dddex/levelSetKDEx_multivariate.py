@@ -21,7 +21,7 @@ import copy
 import warnings
 
 from .baseClasses import BaseWeightsBasedEstimator_multivariate
-from .levelSetKDEx import BaseLSx
+from .levelSetKDEx_univariate import BaseLSx
 from .wSAA import SampleAverageApproximation
 from .utils import restructureWeightsDataList_multivariate
 
