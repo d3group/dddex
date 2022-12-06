@@ -70,7 +70,7 @@ class QuantileCrossValidation:
                                                   random_state = random_state)
             
             self.randomSearch = True
-            self.nIter = n_iter
+            self.nIter = nIter
             self.random_state = random_state
             
         else:
