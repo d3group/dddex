@@ -18,9 +18,33 @@ import pathlib
 import pkg_resources
 
 # %% auto 0
-__all__ = ['loadDataYaz', 'add_lag_features']
+__all__ = ['loadDataYaz2', 'loadDataYaz', 'add_lag_features']
 
 # %% ../nbs/06_loadData.ipynb 5
+def loadDataYaz2(returnXY = True):
+    
+    dataPath = pkg_resources.resource_stream(__name__, 'datasets/dataYaz2.csv')
+    data = pd.read_csv(dataPath)
+    
+    #---
+    
+    if returnXY:       
+        X = np.array(data.drop(['demand', 'label', 'id'], axis = 1))
+        y = np.ravel(data['demand'])
+
+        XTrain = X[data['label'] == 'train']
+        yTrain = y[data['label'] == 'train']
+
+        XTest = X[data['label'] == 'test']
+        yTest = y[data['label'] == 'test']
+        
+        return data, XTrain, yTrain, XTest, yTest
+        
+    else:
+        return data    
+    
+
+# %% ../nbs/06_loadData.ipynb 7
 def loadDataYaz(testDays = 28, returnXY = True, daysToCut = 0):
     
 #     currentFile = __file__
@@ -98,7 +122,7 @@ def loadDataYaz(testDays = 28, returnXY = True, daysToCut = 0):
         return data    
     
 
-# %% ../nbs/06_loadData.ipynb 8
+# %% ../nbs/06_loadData.ipynb 10
 def add_lag_features(X, y, column_id, column_sort, feature_dict, time_windows):
     """
     Create lag features for y and add them to X

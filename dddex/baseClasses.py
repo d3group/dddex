@@ -102,7 +102,7 @@ class BaseWeightsBasedEstimator(BaseEstimator):
           the second one the corresponding value of `yTrain`. The probabilities corresponding to identical values of `yTrain` are aggregated.
         """
         pass
-    
+     
     #---
     
     def predict(self : BaseWeightsBasedEstimator, 
@@ -124,39 +124,36 @@ class BaseWeightsBasedEstimator(BaseEstimator):
                  
         if any([prob > 1 or prob < 0 for prob in probs]):
             raise ValueError("The values specified via 'probs' must lie between 0 and 1!")
+            
+        try:
+            probs = np.array(probs)
+        except:
+            raise ValueError("Can't convert `probs` to 1-dimensional array.")
         
         #---
                              
         distributionDataList = self.getWeights(X = X,
                                                outputType = 'cumulativeDistribution',
-                                               scalingList = scalingList)
-
-        quantilesDict = {prob: [] for prob in probs}
-
-        for probsDistributionFunction, yDistributionFunction in distributionDataList:
-
-            for prob in probs:
-                
-                # A tolerance term of 10^-8 is substracted from prob to account for rounding errors due to numerical precision. 
-                quantileIndex = np.where(probsDistributionFunction >= prob - 10**-8)[0][0]
-                    
-                quantile = yDistributionFunction[quantileIndex]
-                quantilesDict[prob].append(quantile)
-
-        quantilesDf = pd.DataFrame(quantilesDict)
-
-        # Just done to make the dictionary contain arrays rather than lists of the quantiles.
-        quantilesDict = {prob: np.array(quantiles) for prob, quantiles in quantilesDict.items()}
-
-        #---
+                                               scalingList = scalingList)        
+        
+        quantilesList = list()
+        
+        for probsDistribution, valuesDistribution in distributionDataList:
+            
+            # A tolerance term of 10^-8 is substracted from prob to account for rounding errors due to numerical precision.
+            quantileIndices = np.searchsorted(a = probsDistribution, v = probs - 10**-8, side = 'left')
+            quantilesList.append(valuesDistribution[quantileIndices])
+    
+        quantilesDf = pd.DataFrame(quantilesList)
+        quantilesDf.columns = probs
 
         if outputAsDf:
             return quantilesDf
 
         else:
-            return quantilesDict
-        
-    #---    
+            return quantilesDf.to_dict(orient = 'series')
+    
+    #---
     
     def sampleScenarios(self,
                         X: np.ndarray, # Feature matrix for which samples are computed.

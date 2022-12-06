@@ -104,19 +104,19 @@ def fit(self: QuantileCrossValidation,
     X = np.array(X)
     y = np.array(y)
     
-    # scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(getFoldScore)(estimatorLSx = copy.deepcopy(self.quantileEstimator),
-    #                                                                      parameterGrid = self.parameterGrid,
-    #                                                                      cvFold = cvFold,
-    #                                                                      probs = self.probs,
-    #                                                                      X = X,
-    #                                                                      y = y) for cvFold in self.cvFolds)
+    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(getFoldScore)(quantileEstimator = copy.deepcopy(self.quantileEstimator),
+                                                                         parameterGrid = self.parameterGrid,
+                                                                         cvFold = cvFold,
+                                                                         probs = self.probs,
+                                                                         X = X,
+                                                                         y = y) for cvFold in self.cvFolds)
     
-    scoresPerFold = [getFoldScore(quantileEstimator = copy.deepcopy(self.quantileEstimator),
-                                  parameterGrid = self.parameterGrid,
-                                  cvFold = cvFold,
-                                  probs = self.probs,
-                                  y = y,
-                                  X = X) for cvFold in self.cvFolds]
+    # scoresPerFold = [getFoldScore(quantileEstimator = copy.deepcopy(self.quantileEstimator),
+    #                               parameterGrid = self.parameterGrid,
+    #                               cvFold = cvFold,
+    #                               probs = self.probs,
+    #                               y = y,
+    #                               X = X) for cvFold in self.cvFolds]
 
     self.cvResults_raw = scoresPerFold
     meanCostsDf = sum(scoresPerFold) / len(scoresPerFold)
@@ -189,8 +189,8 @@ def getFoldScore(quantileEstimator, parameterGrid, cvFold, probs, X, y):
 
     # By setting 'X = None', the SAA results are only computed for a single observation (they are independent of X anyway).
     # In order to receive the final dataframe of SAA results, we simply duplicate this single row as many times as needed.
-    quantilesDictSAAOneOb = SAA_fold.predict(X = None, probs = probs, outputAsDf = False)
-    quantilesDictSAA = {prob: np.repeat(quantile, len(XTestFold)) for prob, quantile in quantilesDictSAAOneOb.items()}
+    quantilesSAA = SAA_fold.predict(X = None, probs = probs, outputAsDf = True)
+    quantilesDfSAA = pd.concat([quantilesSAA] * XTestFold.shape[0], axis = 0).reset_index(drop = True)
 
     #---
     
@@ -210,16 +210,14 @@ def getFoldScore(quantileEstimator, parameterGrid, cvFold, probs, X, y):
         quantileEstimator.fit(X = XTrainFold,
                               y = yTrainFold)
 
-        quantilesDict = quantileEstimator.predict(X = XTestFold,
-                                                  probs = probs,
-                                                  outputAsDf = False)
+        quantilesDf = quantileEstimator.predict(X = XTestFold,
+                                                probs = probs,
+                                                outputAsDf = True)
 
-        costsDict = dict()
-        for prob in probs:            
-            costsDict[prob] = getCostRatio(decisions = quantilesDict[prob], 
-                                           decisionsSAA = quantilesDictSAA[prob], 
-                                           yTest = yTestFold, 
-                                           prob = prob)
+        costsDict = {prob: getCostRatio(decisions = quantilesDf.loc[:, prob], 
+                                            decisionsSAA = quantilesDfSAA.loc[:, prob], 
+                                            yTest = yTestFold, 
+                                            prob = prob) for prob in probs}
 
         costsPerParam[tuple(params.values())] = costsDict
 
@@ -284,7 +282,10 @@ class CrossValidationLSx_combined:
                              "provide a fixed parameter setting for the LS model via `parameterGridLSx`.")
             
         if np.any(np.array(probs) > 1) or np.any(np.array(probs) < 0): 
-            raise ValueError("probs must only contain numbers between 0 and 1!")
+            raise ValueError("`probs` must only contain numbers between 0 and 1!")
+            
+        if len(probs) == 0:
+            raise ValueError("`probs` must be specified!")
         
         #---
         
@@ -342,20 +343,21 @@ def fit(self: CrossValidationLSx_combined,
     X = np.array(X)
     y = np.array(y)
     
-    # scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(getFoldScore_combined)(cvFold = cvFold,
-    #                                                                               binSizeGrid = self.binSizeGrid,
-    #                                                                               probs = self.probs,
-    #                                                                               estimatorLSx = copy.deepcopy(self.estimatorLSx),
-    #                                                                               y = y,
-    #                                                                               X = X) for cvFold in self.cvFolds)
+    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(getFoldScore_combined)(estimatorLSx = copy.deepcopy(self.estimatorLSx),
+                                                                                  parameterGridLSx = self.parameterGridLSx, 
+                                                                                  parameterGridEstimator = self.parameterGridEstimator,
+                                                                                  cvFold = cvFold,
+                                                                                  probs = self.probs,
+                                                                                  y = y,
+                                                                                  X = X) for cvFold in self.cvFolds)
     
-    scoresPerFold = [getFoldScore_combined(estimatorLSx = copy.deepcopy(self.estimatorLSx),
-                                           parameterGridLSx = self.parameterGridLSx,
-                                           parameterGridEstimator = self.parameterGridEstimator,
-                                           cvFold = cvFold,
-                                           probs = self.probs,
-                                           y = y,
-                                           X = X) for cvFold in self.cvFolds]
+    # scoresPerFold = [getFoldScore_combined(estimatorLSx = copy.deepcopy(self.estimatorLSx),
+    #                                        parameterGridLSx = self.parameterGridLSx,
+    #                                        parameterGridEstimator = self.parameterGridEstimator,
+    #                                        cvFold = cvFold,
+    #                                        probs = self.probs,
+    #                                        y = y,
+    #                                        X = X) for cvFold in self.cvFolds]
 
     self.cvResults_raw = scoresPerFold
     meanCostsDf = sum(scoresPerFold) / len(scoresPerFold)
@@ -460,6 +462,18 @@ def getFoldScore_combined(estimatorLSx, parameterGridLSx, parameterGridEstimator
     yTestFold = y[indicesTest]
     XTestFold = X[indicesTest]
     
+    #---
+
+    SAA_fold = SampleAverageApproximation()
+    SAA_fold.fit(y = yTrainFold)
+
+    # By setting 'X = None', the SAA results are only computed for a single observation (they are independent of X anyway).
+    # In order to receive the final dataframe of SAA results, we simply duplicate this single row as many times as needed.
+    quantilesSAA = SAA_fold.predict(X = None, probs = probs, outputAsDf = True)
+    quantilesDfSAA = pd.concat([quantilesSAA] * XTestFold.shape[0], axis = 0).reset_index(drop = True)
+    
+    #---
+    
     costsDfList = list()
     
     for paramsEstimator in parameterGridEstimator:
@@ -467,16 +481,6 @@ def getFoldScore_combined(estimatorLSx, parameterGridLSx, parameterGridEstimator
         estimatorLSx.refitPointEstimator(X = XTrainFold, 
                                          y = yTrainFold,
                                          **paramsEstimator)
-
-        #---
-
-        SAA_fold = SampleAverageApproximation()
-        SAA_fold.fit(y = yTrainFold)
-
-        # By setting 'X = None', the SAA results are only computed for a single observation (they are independent of X anyway).
-        # In order to receive the final dataframe of SAA results, we simply duplicate this single row as many times as needed.
-        quantilesDictSAAOneOb = SAA_fold.predict(X = None, probs = probs, outputAsDf = False)
-        quantilesDictSAA = {prob: np.repeat(quantile, len(XTestFold)) for prob, quantile in quantilesDictSAAOneOb.items()}
 
         #---
 
@@ -489,21 +493,17 @@ def getFoldScore_combined(estimatorLSx, parameterGridLSx, parameterGridEstimator
             estimatorLSx.fit(X = XTrainFold,
                              y = yTrainFold)
 
-            quantilesDict = estimatorLSx.predict(X = XTestFold,
+            quantilesDf = estimatorLSx.predict(X = XTestFold,
                                                  probs = probs,
-                                                 outputAsDf = False)
+                                                 outputAsDf = True)
 
             #---
-
-            costsDict = dict()
-
-            for prob in probs:            
-                costsDict[prob] = getCostRatio(decisions = quantilesDict[prob], 
-                                               decisionsSAA = quantilesDictSAA[prob], 
-                                               yTest = yTestFold, 
-                                               prob = prob)
             
-           
+            costsDict = {prob: getCostRatio(decisions = quantilesDf.loc[:, prob], 
+                                            decisionsSAA = quantilesDfSAA.loc[:, prob], 
+                                            yTest = yTestFold, 
+                                            prob = prob) for prob in probs}
+            
             costsPerParamLSx[tuple(paramsLSx.values())] = costsDict
 
         #---
