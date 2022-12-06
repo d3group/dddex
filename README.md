@@ -68,7 +68,7 @@ from lightgbm import LGBMRegressor
 ```
 
 ``` python
-dataYaz, XTrain, yTrain, XTest, yTest = loadDataYaz(testDays = 28, returnXY = True)
+dataYaz, XTrain, yTrain, XTest, yTest = loadDataYaz(returnXY = True)
 LGBM = LGBMRegressor(n_jobs = 1)
 ```
 
