@@ -36,6 +36,22 @@ def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeight
     
     #---
     
+    elif outputType == 'onlyPositiveWeightsValues':
+        
+        weightsDataListNew = list()
+
+        for i in range(len(weightsDataList)):
+            weights, values = weightsDataList[i][0], y[weightsDataList[i][1]]
+            
+            if not scalingList is None:
+                values = values * scalingList[i]
+                
+            weightsDataListNew.append((weights, values))
+            
+        return weightsDataListNew
+    
+    #---
+    
     elif outputType == 'summarized':
         
         weightsDataListSummarized = list()

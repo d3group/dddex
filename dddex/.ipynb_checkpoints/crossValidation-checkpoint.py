@@ -20,9 +20,8 @@ from .baseClasses import BaseLSx
 from .wSAA import SampleAverageApproximation
 
 # %% auto 0
-__all__ = ['QuantileCrossValidation', 'getFoldScore', 'QuantileCrossValidationLSx', 'getFoldScoreLSx', 'DensityCrossValidation',
-           'getFoldScore_wasserstein', 'DensityCrossValidationLSx', 'getFoldScoreLSx_wasserstein', 'getPinballLoss',
-           'getWassersteinDistances', 'groupedTimeSeriesSplit']
+__all__ = ['QuantileCrossValidation', 'getFoldScore', 'CrossValidationLSx_combined', 'getFoldScore_combined', 'getCostRatio',
+           'groupedTimeSeriesSplit']
 
 # %% ../nbs/04_CrossValidation.ipynb 6
 class QuantileCrossValidation:
@@ -192,10 +191,7 @@ def getFoldScore(quantileEstimator, parameterGrid, cvFold, probs, X, y):
     # In order to receive the final dataframe of SAA results, we simply duplicate this single row as many times as needed.
     quantilesSAA = SAA_fold.predict(X = None, probs = probs, outputAsDf = True)
     quantilesDfSAA = pd.concat([quantilesSAA] * XTestFold.shape[0], axis = 0).reset_index(drop = True)
-    
-    costsDictSAA = {prob: getPinballLoss(decisions = quantilesDfSAA.loc[:, prob],
-                                         yTest = yTestFold,
-                                         prob = prob) for prob in probs}
+
     #---
     
     # Necessary to ensure compatability with wSAA-models etc.
@@ -217,27 +213,13 @@ def getFoldScore(quantileEstimator, parameterGrid, cvFold, probs, X, y):
         quantilesDf = quantileEstimator.predict(X = XTestFold,
                                                 probs = probs,
                                                 outputAsDf = True)
-        
-        costsDict = {prob: getPinballLoss(decisions = quantilesDf.loc[:, prob],
-                                          yTest = yTestFold,
-                                          prob = prob) for prob in probs}
-        
-        # We have to capture the special case of costSAA == 0, because then we can't compute the 
-        # Cost-Ratio using the actual definition.
-        costsRatioDict = dict()
-        for prob in probs:
-            
-            if costsDictSAA[prob] > 0:
-                costRatio = costsDict[prob] / costsDictSAA[prob]
-            else:
-                if costDict[prob] == 0:
-                    costRatio = 0
-                else:
-                    costRatio = 1
 
-            costsRatioDict[prob] = costRatio
+        costsDict = {prob: getCostRatio(decisions = quantilesDf.loc[:, prob], 
+                                            decisionsSAA = quantilesDfSAA.loc[:, prob], 
+                                            yTest = yTestFold, 
+                                            prob = prob) for prob in probs}
 
-        costsPerParam[tuple(params.values())] = costsRatioDict
+        costsPerParam[tuple(params.values())] = costsDict
 
     #---
 
@@ -247,7 +229,7 @@ def getFoldScore(quantileEstimator, parameterGrid, cvFold, probs, X, y):
     return costsDf
 
 # %% ../nbs/04_CrossValidation.ipynb 11
-class QuantileCrossValidationLSx:
+class CrossValidationLSx_combined:
     """
     Class to efficiently tune the `binSize` parameter of all Level-Set based models.
     """
@@ -352,7 +334,7 @@ class QuantileCrossValidationLSx:
 
 # %% ../nbs/04_CrossValidation.ipynb 12
 @patch
-def fit(self: QuantileCrossValidationLSx, 
+def fit(self: CrossValidationLSx_combined, 
         X: np.ndarray, # Feature matrix (has to work with the folds specified via `cvFolds`)
         y: np.ndarray, # Target values (has to work with the folds specified via `cvFolds`)
         ): 
@@ -361,21 +343,21 @@ def fit(self: QuantileCrossValidationLSx,
     X = np.array(X)
     y = np.array(y)
     
-    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(getFoldScoreLSx)(estimatorLSx = copy.deepcopy(self.estimatorLSx),
-                                                                            parameterGridLSx = self.parameterGridLSx, 
-                                                                            parameterGridEstimator = self.parameterGridEstimator,
-                                                                            cvFold = cvFold,
-                                                                            probs = self.probs,
-                                                                            y = y,
-                                                                            X = X) for cvFold in self.cvFolds)
+    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(getFoldScore_combined)(estimatorLSx = copy.deepcopy(self.estimatorLSx),
+                                                                                  parameterGridLSx = self.parameterGridLSx, 
+                                                                                  parameterGridEstimator = self.parameterGridEstimator,
+                                                                                  cvFold = cvFold,
+                                                                                  probs = self.probs,
+                                                                                  y = y,
+                                                                                  X = X) for cvFold in self.cvFolds)
     
-    # scoresPerFold = [getFoldScoreLSx(estimatorLSx = copy.deepcopy(self.estimatorLSx),
-    #                                  parameterGridLSx = self.parameterGridLSx,
-    #                                  parameterGridEstimator = self.parameterGridEstimator,
-    #                                  cvFold = cvFold,
-    #                                  probs = self.probs,
-    #                                  y = y,
-    #                                  X = X) for cvFold in self.cvFolds]
+    # scoresPerFold = [getFoldScore_combined(estimatorLSx = copy.deepcopy(self.estimatorLSx),
+    #                                        parameterGridLSx = self.parameterGridLSx,
+    #                                        parameterGridEstimator = self.parameterGridEstimator,
+    #                                        cvFold = cvFold,
+    #                                        probs = self.probs,
+    #                                        y = y,
+    #                                        X = X) for cvFold in self.cvFolds]
 
     self.cvResults_raw = scoresPerFold
     meanCostsDf = sum(scoresPerFold) / len(scoresPerFold)
@@ -469,7 +451,7 @@ def fit(self: QuantileCrossValidationLSx,
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
-def getFoldScoreLSx(estimatorLSx, parameterGridLSx, parameterGridEstimator, cvFold, probs, X, y):
+def getFoldScore_combined(estimatorLSx, parameterGridLSx, parameterGridEstimator, cvFold, probs, X, y):
     
     indicesTrain = cvFold[0]
     indicesTest = cvFold[1]
@@ -489,10 +471,6 @@ def getFoldScoreLSx(estimatorLSx, parameterGridLSx, parameterGridEstimator, cvFo
     # In order to receive the final dataframe of SAA results, we simply duplicate this single row as many times as needed.
     quantilesSAA = SAA_fold.predict(X = None, probs = probs, outputAsDf = True)
     quantilesDfSAA = pd.concat([quantilesSAA] * XTestFold.shape[0], axis = 0).reset_index(drop = True)
-    
-    costsDictSAA = {prob: getPinballLoss(decisions = quantilesDfSAA.loc[:, prob],
-                                         yTest = yTestFold,
-                                         prob = prob) for prob in probs}
     
     #---
     
@@ -521,26 +499,12 @@ def getFoldScoreLSx(estimatorLSx, parameterGridLSx, parameterGridEstimator, cvFo
 
             #---
             
-            costsDict = {prob: getPinballLoss(decisions = quantilesDf.loc[:, prob],
-                                              yTest = yTestFold,
-                                              prob = prob) for prob in probs}
-        
-            # We have to capture the special case of costSAA == 0, because then we can't compute the 
-            # Cost-Ratio using the actual definition.
-            costsRatioDict = dict()
-            for prob in probs:
-
-                if costsDictSAA[prob] > 0:
-                    costRatio = costsDict[prob] / costsDictSAA[prob]
-                else:
-                    if costDict[prob] == 0:
-                        costRatio = 0
-                    else:
-                        costRatio = 1
-                        
-                costsRatioDict[prob] = costRatio
+            costsDict = {prob: getCostRatio(decisions = quantilesDf.loc[:, prob], 
+                                            decisionsSAA = quantilesDfSAA.loc[:, prob], 
+                                            yTest = yTestFold, 
+                                            prob = prob) for prob in probs}
             
-            costsPerParamLSx[tuple(paramsLSx.values())] = costsRatioDict
+            costsPerParamLSx[tuple(paramsLSx.values())] = costsDict
 
         #---
         
@@ -563,454 +527,35 @@ def getFoldScoreLSx(estimatorLSx, parameterGridLSx, parameterGridEstimator, cvFo
     costsDf = pd.concat(costsDfList, axis = 0)
     
     return costsDf
-
-# %% ../nbs/04_CrossValidation.ipynb 17
-class DensityCrossValidation:
-    """
-    Class to efficiently tune the `binSize` parameter of all Level-Set based models.
-    """
-    
-    def __init__(self,
-                 # An object with a `predict` method that must (!) have an argument called `probs`
-                 # that specifies which quantiles to predict. Further, `quantileEstimator` needs
-                 # a `set_params` and `fit` method.
-                 estimator, 
-                 cvFolds, # An iterable yielding (train, test) splits as arrays of indices.
-                 # dict or list of dicts with parameters names (`str`) as keys and distributions
-                 # or lists of parameters to try. Distributions must provide a ``rvs``
-                 # method for sampling (such as those from scipy.stats.distributions).
-                 parameterGrid: dict, 
-                 randomSearch: bool=False, # Whether to use randomized search or grid search
-                 # Number of parameter settings that are sampled if `randomSearch == True`. 
-                 # n_iter trades off runtime vs quality of the solution.
-                 nIter: int=None,
-                 p: int=1, # The order of the wasserstein distance to evaluate each hyperparameter settings.
-                 n_jobs: int=None, # Number of jobs to run in parallel.
-                 # Pseudo random number generator state used for random uniform sampling of parameter candidate values.
-                 # Pass an int for reproducible output across multiple function calls.
-                 random_state: int=None, 
-                 ):
-        
-        # CHECKS  
-        # if not isinstance(estimatorLSx, (BaseLSx)):
-        #     raise ValueError("'estimatorLSx' has to be a 'LevelSetKDEx', 'LevelSetKDEx_NN_new' or a 'LevelSetKDEx_kNN' object!")               
-        
-        if not isinstance(p, int):
-            raise ValueError("`p` must be an integer between 1 and inf!")
-            
-        #---
-        
-        if randomSearch:
-            self.parameterGrid = ParameterSampler(param_distributions = parameterGrid,
-                                                  n_iter = nIter,
-                                                  random_state = random_state)
-            
-            self.randomSearch = True
-            self.nIter = nIter
-            self.random_state = random_state
-            
-        else:
-            self.parameterGrid = ParameterGrid(parameterGrid)
-            self.randomSearch = False
-            
-        #---
-        
-        self.estimator = copy.deepcopy(estimator)
-        self.cvFolds = cvFolds
-        self.p = p
-        self.n_jobs = n_jobs
-        
-        self.bestParams = None
-        self.bestEstimator = None
-        self.cvResults = None
-        self.cvResults_raw = None
-        
 
 # %% ../nbs/04_CrossValidation.ipynb 18
-@patch
-def fit(self: DensityCrossValidation, 
-        X: np.ndarray, # Feature matrix (has to work with the folds specified via `cvFolds`)
-        y: np.ndarray, # Target values (has to work with the folds specified via `cvFolds`)
-        ): 
-    
-    # Making sure that X and y are arrays to ensure correct subsetting via implicit indices.
-    X = np.array(X)
-    y = np.array(y)
-    
-    # scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(getFoldScore_wasserstein)(estimator = copy.deepcopy(self.estimator),
-    #                                                                                  parameterGrid = self.parameterGrid,
-    #                                                                                  cvFold = cvFold,
-    #                                                                                  p = self.p,
-    #                                                                                  X = X,
-    #                                                                                  y = y) for cvFold in self.cvFolds)
-    
-    scoresPerFold = [getFoldScore_wasserstein(estimator = copy.deepcopy(self.estimator),
-                                              parameterGrid = self.parameterGrid,
-                                              cvFold = cvFold,
-                                              p = self.p,
-                                              y = y,
-                                              X = X) for cvFold in self.cvFolds]
-    
-    # RESULTS
-    self.cvResults_raw = scoresPerFold
-    meanCostsDf = sum(scoresPerFold) / len(scoresPerFold)
-    self.cvResults = meanCostsDf
-    
-    # BEST PARAMETER SETTING
-    meanCostsPerParam = meanCostsDf.mean(axis = 1)
-    paramsBest = meanCostsPerParam.index[np.argmin(meanCostsPerParam)]
-    paramsBest = dict(zip(meanCostsPerParam.index.names, paramsBest))
-    self.bestParams = paramsBest
-    
-    # REFITTING ESTIMATOR WITH BEST PARAMETERS
-    estimator = copy.deepcopy(self.estimator)
-    estimator.set_params(**paramsBest)
-    estimator.fit(X = X, y = y)
+def getCostRatio(decisions, decisionsSAA, yTest, prob):
 
-    self.bestEstimator = estimator
+    # Newsvendor Costs of our model
+    cost = np.array([prob * (yTest[i] - decisions[i]) if yTest[i] > decisions[i] 
+                     else (1 - prob) * (decisions[i] - yTest[i]) 
+                     for i in range(len(yTest))]).sum()
+    
+    # Newsvendor Costs of SAA
+    costSAA = np.array([prob * (yTest[i] - decisionsSAA[i]) if yTest[i] > decisionsSAA[i] 
+                        else (1 - prob) * (decisionsSAA[i] - yTest[i]) 
+                        for i in range(len(yTest))]).sum()
+    
+    #---
+    
+    # We have to capture the special case of costSAA == 0, because then we can't compute the 
+    # Cost-Ratio using the actual definition.
+    if costSAA > 0:
+        costRatio = cost / costSAA
+    else:
+        if cost == 0:
+            costRatio = 0
+        else:
+            costRatio = 1
+    
+    return costRatio
 
 # %% ../nbs/04_CrossValidation.ipynb 20
-# This function evaluates the newsvendor performance for different bin sizes for one specific fold.
-# The considered bin sizes
-
-def getFoldScore_wasserstein(estimator, parameterGrid, cvFold, p, X, y):
-    
-    indicesTrain = cvFold[0]
-    indicesTest = cvFold[1]
-    
-    yTrainFold = y[indicesTrain]
-    XTrainFold = X[indicesTrain]
-    
-    yTestFold = y[indicesTest]
-    XTestFold = X[indicesTest]
-    
-    #---
-
-    SAA_fold = SampleAverageApproximation()
-    SAA_fold.fit(y = yTrainFold)
-
-    # By setting 'X = None', the SAA density is only computed for a single observation (the density is independent of X anyway)
-    # and simply duplicated as many times as needed.
-    densitiesSAA = SAA_fold.getWeights(X = None, outputType = 'onlyPositiveWeightsValues') * XTestFold.shape[0]
-    
-    wassersteinDistSAA = getWassersteinDistances(densities = densitiesSAA,
-                                                 yTest = yTestFold,
-                                                 p = p).sum()
-    
-    #---
-    
-    # Necessary to ensure compatability with wSAA-models etc.
-    try:
-        estimator.refitPointEstimator(X = XTrainFold, 
-                                      y = yTrainFold)
-    except:
-        pass
-
-    costsPerParam = defaultdict(dict)
-
-    for params in parameterGrid:
-
-        estimator.set_params(**params)
-
-        estimator.fit(X = XTrainFold,
-                      y = yTrainFold)
-        
-        #---
-        
-        densities = estimator.getWeights(X = XTestFold,
-                                         outputType = 'onlyPositiveWeightsValues')
-        
-        wassersteinDist = getWassersteinDistances(densities = densities, 
-                                                  yTest = yTestFold, 
-                                                  p = p).sum()
-        
-        if wassersteinDistSAA > 0:
-            wassersteinRatio = wassersteinDist / wassersteinDistSAA
-        else:
-            if wassersteinDist == 0:
-                wassersteinRatio = 0
-            else:
-                wassersteinRatio = 1
-                
-        costsPerParam[tuple(params.values())] = {'wassersteinRatio': wassersteinRatio}
-
-    #---
-    # s = pd.Series(list(d.values()),index=pd.MultiIndex.from_tuples(d.keys()))
-    costsDf = pd.DataFrame.from_dict(costsPerParam, orient = 'index')
-    costsDf.index.names = list(params.keys())
-    
-    return costsDf
-
-# %% ../nbs/04_CrossValidation.ipynb 22
-class DensityCrossValidationLSx:
-    """
-    Class to efficiently tune the `binSize` parameter of all Level-Set based models.
-    """
-    
-    def __init__(self,
-                 estimatorLSx, # A Level-Set based model.
-                 cvFolds, # An iterable yielding (train, test) splits as arrays of indices.
-                 # dict or list of dicts with LSx parameters names (`str`) as keys and distributions
-                 # or lists of parameters to try. Distributions must provide a ``rvs``
-                 # method for sampling (such as those from scipy.stats.distributions).
-                 parameterGridLSx: dict,
-                 # dict or list of dicts with parameters names (`str`) of the point predictor as keys
-                 # and distributions or lists of parameters to try. Distributions must provide a ``rvs``
-                 # method for sampling (such as those from scipy.stats.distributions).
-                 parameterGridEstimator: dict,
-                 randomSearchLSx: bool=False, # Whether to use randomized search or grid search for the LSx parameters.
-                 # Whether to use randomized search or grid search for the point predictor parameters.
-                 randomSearchEstimator: bool=False, 
-                 # Number of parameter settings of the LSx model that are sampled if `randomSearchLSx == True`. 
-                 # LSx parameter settings are usually relatively cheap to evaluate, so all sampled LSx paramater settings
-                 # are evaluated for each point predictor parameter setting.
-                 nIterLSx: int=None,
-                 # Number of parameter settings of the underlying point predictor that are sampled if 
-                 # `randomSearchEstimator == True`. nIterEstimator trades off runtime vs quality of the solution.
-                 nIterEstimator: int=None,
-                 p: int=1, # The order of the wasserstein distance to evaluate each hyperparameter settings.
-                 n_jobs: int=None, # number of folds being computed in parallel.
-                 # Pseudo random number generator state used for random uniform sampling of parameter candidate values.
-                 # Pass an int for reproducible output across multiple function calls.
-                 random_state: int=None,
-                 ):
-        
-        # CHECKS  
-        if not isinstance(estimatorLSx, (BaseLSx)):
-            raise ValueError("'estimatorLSx' has to be a 'LevelSetKDEx', 'LevelSetKDEx_NN_new' or a 'LevelSetKDEx_kNN' object!")
-            
-        if len(parameterGridEstimator) == 0:
-            raise ValueError("No parameter candidates have been specified for the point predictor. If you want to only evaluate"
-                             "parameter settings of the LSx-estimator itself, use the class `QuantileCrossValidation` instead or"
-                             "provide a fixed parameter setting for the point predictor via `parameterGridEstimator`.")
-            
-        if len(parameterGridLSx) == 0:
-            raise ValueError("No parameter candidates have been specified for the LSx model! If you want to only evaluate"
-                             "parameter settings of the point predictor, use standard cross-validation classes or instead"
-                             "provide a fixed parameter setting for the LS model via `parameterGridLSx`.")
-            
-        if not isinstance(p, int):
-            raise ValueError("`p` must be an integer between 1 and inf!")
-        
-        #---
-        
-        if randomSearchLSx:
-            self.parameterGridLSx = ParameterSampler(param_distributions = parameterGridLSx,
-                                                     n_iter = nIterLSx,
-                                                     random_state = random_state)
-            self.randomSearchLSx = True
-            self.nIterLsx = nIterLSx
-            self.random_state = random_state
-        
-        else:
-            self.parameterGridLSx = ParameterGrid(parameterGridLSx)
-            self.randomSearchLSx = False
-            
-        
-        if randomSearchEstimator:
-            
-            self.parameterGridEstimator = ParameterSampler(param_distributions = parameterGridEstimator,
-                                                           n_iter = nIterEstimator,
-                                                           random_state = random_state)
-            self.randomSearchEstimator = True
-            self.nIterEstimator = nIterEstimator
-            self.random_state = random_state
-            
-        else:
-            self.parameterGridEstimator = ParameterGrid(parameterGridEstimator)
-            self.randomSearchEstimator = False
-            
-        #---
-        
-        self.estimatorLSx = copy.deepcopy(estimatorLSx)
-        
-        self.cvFolds = cvFolds
-        self.p = p
-        self.n_jobs = n_jobs
-        
-        self.bestParams = None
-        self.bestEstimatorLSx = None
-        self.cvResults = None
-        self.cvResults_raw = None
-        
-
-# %% ../nbs/04_CrossValidation.ipynb 23
-@patch
-def fit(self: DensityCrossValidationLSx, 
-        X: np.ndarray, # Feature matrix (has to work with the folds specified via `cvFolds`)
-        y: np.ndarray, # Target values (has to work with the folds specified via `cvFolds`)
-        ): 
-    
-    # Making sure that X and y are arrays to ensure correct subsetting via implicit indices.
-    X = np.array(X)
-    y = np.array(y)
-    
-    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(getFoldScoreLSx_wasserstein)(estimatorLSx = copy.deepcopy(self.estimatorLSx),
-                                                                                        parameterGridLSx = self.parameterGridLSx, 
-                                                                                        parameterGridEstimator = self.parameterGridEstimator,
-                                                                                        cvFold = cvFold,
-                                                                                        p = self.p,
-                                                                                        y = y,
-                                                                                        X = X) for cvFold in self.cvFolds)
-    
-    scoresPerFold = [getFoldScoreLSx_wasserstein(estimatorLSx = copy.deepcopy(self.estimatorLSx),
-                                                 parameterGridLSx = self.parameterGridLSx,
-                                                 parameterGridEstimator = self.parameterGridEstimator,
-                                                 cvFold = cvFold,
-                                                 p = self.p,
-                                                 y = y,
-                                                 X = X) for cvFold in self.cvFolds]
-
-    self.cvResults_raw = scoresPerFold
-    meanCostsDf = sum(scoresPerFold) / len(scoresPerFold)
-    self.cvResults = meanCostsDf
-    
-    #---
-    
-    # BEST PARAMETER SETTINGS OVER ALL PROBS
-    meanCostsPerParam = meanCostsDf.mean(axis = 1)
-    paramsBest = meanCostsPerParam.index[np.argmin(meanCostsPerParam)]
-    paramsBest = dict(zip(meanCostsPerParam.index.names, paramsBest))
-    
-    paramsLSxNames = self.estimatorLSx._get_param_names()
-    paramsLSxBest = {paramName: value for paramName, value in paramsBest.items() if paramName in paramsLSxNames}
-    paramsEstimatorBest = {paramName: value for paramName, value in paramsBest.items() if not paramName in paramsLSxNames}
-    
-    self.bestParams = paramsBest
-    self.bestParamsLSx = paramsLSxBest
-    self.bestParamsEstimator = paramsEstimatorBest
-        
-    #---
-    
-    estimatorLSx = copy.deepcopy(self.estimatorLSx)
-    
-    estimator = clone(estimatorLSx.estimator)
-    estimator.set_params(**paramsEstimatorBest)
-    estimator.fit(X = X, y = y)
-    
-    estimatorLSx.set_params(**paramsLSxBest,
-                            estimator = estimator)
-    estimatorLSx.fit(X = X, y = y)
-
-    self.bestEstimatorLSx = estimatorLSx
-
-# %% ../nbs/04_CrossValidation.ipynb 26
-# This function evaluates the newsvendor performance for different bin sizes for one specific fold.
-# The considered bin sizes
-
-def getFoldScoreLSx_wasserstein(estimatorLSx, parameterGridLSx, parameterGridEstimator, cvFold, p, X, y):
-    
-    indicesTrain = cvFold[0]
-    indicesTest = cvFold[1]
-    
-    yTrainFold = y[indicesTrain]
-    XTrainFold = X[indicesTrain]
-    
-    yTestFold = y[indicesTest]
-    XTestFold = X[indicesTest]
-    
-    #---
-
-    SAA_fold = SampleAverageApproximation()
-    SAA_fold.fit(y = yTrainFold)
-
-    # By setting 'X = None', the SAA density is only computed for a single observation (the density is independent of X anyway)
-    # and simply duplicated as many times as needed.
-    densitiesSAA = SAA_fold.getWeights(X = None, outputType = 'onlyPositiveWeightsValues') * XTestFold.shape[0]
-    
-    wassersteinDistSAA = getWassersteinDistances(densities = densitiesSAA,
-                                                 yTest = yTestFold,
-                                                 p = p).sum()
-    
-    #---
-    
-    costsDfList = list()
-    
-    for paramsEstimator in parameterGridEstimator:
-        
-        estimatorLSx.refitPointEstimator(X = XTrainFold, 
-                                         y = yTrainFold,
-                                         **paramsEstimator)
-
-        #---
-
-        costsPerParamLSx = defaultdict(dict)
-
-        for paramsLSx in parameterGridLSx:
-
-            estimatorLSx.set_params(**paramsLSx)
-
-            estimatorLSx.fit(X = XTrainFold,
-                             y = yTrainFold)
-
-            densities = estimatorLSx.getWeights(X = XTestFold,
-                                                outputType = 'onlyPositiveWeightsValues')
-        
-            wassersteinDist = getWassersteinDistances(densities = densities, 
-                                                      yTest = yTestFold, 
-                                                      p = p).sum()
-
-            if wassersteinDistSAA > 0:
-                wassersteinRatio = wassersteinDist / wassersteinDistSAA
-            else:
-                if wassersteinDist == 0:
-                    wassersteinRatio = 0
-                else:
-                    wassersteinRatio = 1
-
-            costsPerParamLSx[tuple(paramsLSx.values())] = {'wassersteinRatio': wassersteinRatio}
-
-        #---
-        
-        costsDf = pd.DataFrame.from_dict(costsPerParamLSx, orient = 'index')
-        
-        paramsLSxNames = list(paramsLSx.keys())
-        costsDf.index.names = paramsLSxNames
-
-        costsDf = costsDf.reset_index(drop = False)
-        for paramName, value in paramsEstimator.items():
-            costsDf[paramName] = value
-
-        paramNames = paramsLSxNames + list(paramsEstimator.keys())
-        costsDf = costsDf.set_index(paramNames)
-        
-        costsDfList.append(costsDf)
-        
-    #---
-    
-    costsDf = pd.concat(costsDfList, axis = 0)
-    
-    return costsDf
-
-# %% ../nbs/04_CrossValidation.ipynb 29
-def getPinballLoss(decisions, yTest, prob):
-    
-    underageIndices = yTest > decisions
-    
-    underageCosts = prob * (yTest[underageIndices] - decisions[underageIndices]).sum()
-    overageCosts = (1 - prob) * (decisions[~underageIndices] - yTest[~underageIndices]).sum()
-    
-    return underageCosts + overageCosts
-
-# %% ../nbs/04_CrossValidation.ipynb 31
-def getWassersteinDistances(densities, yTest, p):
-    
-    wassersteinDists = list()
-    
-    for i in range(yTest.shape[0]):
-        y = yTest[i]
-        values = densities[i][1]
-        probs = densities[i][0]
-
-        if len(values.shape) == 1:
-            values = values.reshape(-1, 1)
-            y = y.reshape(-1, 1)
-
-        wassersteinDists.append(np.sum(probs * np.sum(np.abs(values - y)**p, axis = 1))**(1/p))
-
-    return np.array(wassersteinDists)
-
-# %% ../nbs/04_CrossValidation.ipynb 34
 # This function creates the cross-validation folds for every time series. Usually you'd want all test-observations 
 # of each fold to refer to the same time period, but this is impossible to ensure in the case of the two-step models,
 # because the regression of the non-zero observations will always contain data of different time points. For that
