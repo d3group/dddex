@@ -12,12 +12,59 @@ import numpy as np
 import pkg_resources
 
 # %% auto 0
-__all__ = ['loadDataYaz']
+__all__ = ['loadDataYaz', 'loadDataYaz_multivariate', 'loadDataBakery']
 
 # %% ../nbs/06_loadData.ipynb 5
 def loadDataYaz(returnXY = True):
     
-    dataPath = pkg_resources.resource_stream(__name__, 'datasets/dataYaz2.csv')
+    dataPath = pkg_resources.resource_stream(__name__, 'datasets/dataYaz.csv')
+    data = pd.read_csv(dataPath)
+    
+    #---
+    
+    if returnXY:       
+        X = np.array(data.drop(['demand', 'label', 'id'], axis = 1))
+        y = np.ravel(data['demand'])
+
+        XTrain = X[data['label'] == 'train']
+        yTrain = y[data['label'] == 'train']
+
+        XTest = X[data['label'] == 'test']
+        yTest = y[data['label'] == 'test']
+        
+        return data, XTrain, yTrain, XTest, yTest
+        
+    else:
+        return data    
+    
+
+# %% ../nbs/06_loadData.ipynb 6
+def loadDataYaz_multivariate(returnXY = True):
+    
+    dataPath = pkg_resources.resource_stream(__name__, 'datasets/dataYaz_multivariate.csv')
+    data = pd.read_csv(dataPath)
+    
+    #---
+    
+    if returnXY:       
+        X = np.array(data.drop(['demand', 'label'], axis = 1))
+        y = np.ravel(data['demand'])
+
+        XTrain = X[data['label'] == 'train']
+        yTrain = y[data['label'] == 'train']
+
+        XTest = X[data['label'] == 'test']
+        yTest = y[data['label'] == 'test']
+        
+        return data, XTrain, yTrain, XTest, yTest
+        
+    else:
+        return data   
+
+# %% ../nbs/06_loadData.ipynb 8
+def loadDataBakery(returnXY = True):
+    
+    dataPath = pkg_resources.resource_stream(__name__, 'datasets/dataBakery.csv')
     data = pd.read_csv(dataPath)
     
     #---

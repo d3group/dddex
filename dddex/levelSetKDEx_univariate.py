@@ -170,6 +170,15 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
         
         return weightsDataList
     
+    #---
+    
+    # def solveKernelGLS(self,
+    #                    XTrain,
+    #                    sigma,
+    #                    c):
+        
+        
+    
 
 # %% ../nbs/01_levelSetKDEx_univariate.ipynb 11
 def generateBins(binSize: int, # Size of the bins of values of `yPred` being grouped together.
