@@ -344,8 +344,8 @@ class QuantileCrossValidationLSx:
         
         self.bestParams = None
         self.bestParams_perProb = None
-        self.bestEstimatorLSx = None
-        self.bestEstimatorLSx_perProb = None
+        self.bestEstimator = None
+        self.bestEstimator_perProb = None
         self.cvResults = None
         self.cvResults_raw = None
         
@@ -449,7 +449,7 @@ def fit(self: QuantileCrossValidationLSx,
         
         # DICTIONARY OF THE BEST LSx-ESTIMATORS PER PROB
         bestEstimatorPerProb = {prob: estimatorLSxDict[tuple(paramsBestPerProb[prob].values())] for prob in self.probs}
-        self.bestEstimatorLSx_perProb = bestEstimatorPerProb
+        self.bestEstimator_perProb = bestEstimatorPerProb
         
     #---
     
@@ -463,7 +463,7 @@ def fit(self: QuantileCrossValidationLSx,
                             estimator = estimator)
     estimatorLSx.fit(X = X, y = y)
 
-    self.bestEstimatorLSx = estimatorLSx
+    self.bestEstimator = estimatorLSx
 
 # %% ../nbs/04_CrossValidation.ipynb 15
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
@@ -829,7 +829,7 @@ class DensityCrossValidationLSx:
         self.n_jobs = n_jobs
         
         self.bestParams = None
-        self.bestEstimatorLSx = None
+        self.bestEstimator = None
         self.cvResults = None
         self.cvResults_raw = None
         
@@ -892,7 +892,7 @@ def fit(self: DensityCrossValidationLSx,
                             estimator = estimator)
     estimatorLSx.fit(X = X, y = y)
 
-    self.bestEstimatorLSx = estimatorLSx
+    self.bestEstimator = estimatorLSx
 
 # %% ../nbs/04_CrossValidation.ipynb 26
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
