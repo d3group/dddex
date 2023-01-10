@@ -172,12 +172,205 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
     
     #---
     
-    # def solveKernelGLS(self,
-    #                    XTrain,
-    #                    sigma,
-    #                    c):
+    def solveKernelGLS(self,
+                       X,
+                       sigma,
+                       c):
+        
+        if not self.fitted:
+            raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
+                                 "appropriate arguments before trying to compute weights.")
+        
+        #---
+        
+        yPred = self.estimator.predict(X)
+        binPerPred = np.searchsorted(a = self.lowerBoundPerBin, v = yPred, side = 'right') - 1
+        
+        binVectors = [(binPerPred == i).reshape(-1, 1) * 1 for i in range(len(self.lowerBoundPerBin))]
+        binVectorsToSlice = [np.where(binVector)[0] for binVector in binVectors]
+        
+        #---
+        
+        def getNewSolution(u, x, y):
+    
+            if len(u.shape) == 1:
+                u.reshape(-1, 1)
+
+            uSlice = np.where(u == 1)[0]
+
+            ux = np.sum(x[uSlice, :], axis = 0, keepdims = True)
+            xNew = x - np.matmul(y, ux) / (1 + np.sum(y[uSlice]))
+
+            return xNew
+        
+        def solveGLS_initial(sigma, u, c):
+    
+            if len(u.shape) == 1:
+                u = u.reshape(-1, 1)
+
+            if len(c.shape) == 1:
+                c = c.reshape(-1, 1)
+
+            x = c * sigma**(-1)
+            y = u * sigma**(-1)
+
+            return getNewSolution(u = u, x = x, y = y)
+        
+        #---
+        
+        yDict = dict()
+
+        # Loop for A_k^-1 y = u_k
+        for k in range(len(binVectors)):
+
+            # Loop for A_j^-1 y = u_k
+            for j in range(k):
+
+                if j == 0:
+                    yDict[(0, k)] = solveGLS_initial(sigma = sigma, u = binVectors[0], c = binVectors[k])
+
+                else:
+                    yDict[j, k] = getNewSolution(u = binVectors[j], x = yDict[(j - 1, k)], y = yDict[(j - 1, j)])   
+
+            #---
+
+            if k == 0:
+                x = solveGLS_initial(sigma = sigma, u = binVectors[0], c = c)
+            else:
+                x = getNewSolution(u = binVectors[k], x = x, y = yDict[(k - 1, k)])
         
         
+        return x
+    
+    #---
+    
+    def getKernelVectorProduct(self,
+                               X1,
+                               c,
+                               X2 = None,
+                               ):
+        
+        if not self.fitted:
+            raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
+                                 "appropriate arguments before trying to compute weights.")
+        
+        #---
+
+        yPred1 = self.estimator.predict(X1)
+        binPerPred1 = np.searchsorted(a = self.lowerBoundPerBin, v = yPred1, side = 'right') - 1
+        
+        binVectors1 = [(binPerPred1 == i).reshape(-1, 1) * 1 for i in range(len(self.lowerBoundPerBin))]
+        binVectorsToSlice1 = [np.where(binVector)[0] for binVector in binVectors1]
+        
+        if X2 is None:
+            binVectors2 = binVectors1
+            binVectorsToSlice2 = binVectorsToSlice1
+        
+        else:
+            yPred2 = self.estimator.predict(X2)
+            binPerPred2 = np.searchsorted(a = self.lowerBoundPerBin, v = yPred2, side = 'right') - 1
+
+            binVectors2 = [(binPerPred2 == i).reshape(-1, 1) * 1 for i in range(len(self.lowerBoundPerBin))]
+            binVectorsToSlice2 = [np.where(binVector)[0] for binVector in binVectors2]
+        
+        if len(c.shape) == 1:
+            c = c.reshape(-1, 1)
+            
+        #---
+        
+        n = X1.shape[0]
+        m = c.shape[1]
+        
+        resList = list()
+        
+        for i in range(len(self.lowerBoundPerBin)):
+            uc = np.sum(c[binVectorsToSlice2[i], :], axis = 0, keepdims = True)
+            
+            kernelProduct = np.zeros(shape = (n, m))
+            kernelProduct[binVectorsToSlice1[i], :] = uc
+            
+            resList.append(kernelProduct)
+        
+        vectorProduct = np.sum(resList, axis = 0)
+        
+        return vectorProduct
+            
+    #---
+    
+    def getGaussianPosterior(self,
+                             XTrain,
+                             yTrain,
+                             XTest,
+                             sigma):
+        
+        if not self.fitted:
+            raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
+                                 "appropriate arguments before trying to compute weights.")
+        
+        #---
+        
+        yPredTrain = self.estimator.predict(XTrain)
+        binPerPredTrain = np.searchsorted(a = self.lowerBoundPerBin, v = yPredTrain, side = 'right') - 1
+        
+        binVectorsTrain = [(binPerPredTrain == i).reshape(-1, 1) * 1 for i in range(len(self.lowerBoundPerBin))]
+        binVectorsToSliceTrain = [np.where(binVector)[0] for binVector in binVectorsTrain]
+        
+        yPredTest = self.estimator.predict(XTest)
+        binPerPredTest = np.searchsorted(a = self.lowerBoundPerBin, v = yPredTest, side = 'right') - 1
+        
+        binVectorsTest = [(binPerPredTest == i).reshape(-1, 1) * 1 for i in range(len(self.lowerBoundPerBin))]
+        binVectorsToSliceTest = [np.where(binVector)[0] for binVector in binVectorsTest]
+        
+        #---
+        
+        n = binVectorsTrain[0].shape[0]
+        k = binVectorsTest[0].shape[0]
+        
+        kernelProductList = list()
+        
+        for i in range(len(self.lowerBoundPerBin)):
+            x = self.solveKernelGLS(X = XTrain,
+                                    sigma = sigma,
+                                    c = binVectorsTrain[i])
+            
+            kernelProduct = np.zeros(shape = (n, k))
+            kernelProduct[:, binVectorsToSliceTest[i]] = x
+            kernelProductList.append(kernelProduct)
+            
+        kernelProduct = sum(kernelProductList)
+        
+        # x = self.solveGLSKernel(X = XTrain,
+        #                         sigma = sigma,
+        #                         c = kernelProduct)
+        
+        covRightSide = self.getKernelVectorProduct(X1 = XTest,
+                                                   X2 = XTrain,
+                                                   c = kernelProduct)
+        
+        #---
+        
+        covPrior = np.zeros(shape = (k, k))
+        
+        for i in range(len(self.lowerBoundPerBin)):
+            v = binVectorsToSliceTest[i]
+            covPrior[v[:, None], v] = 1
+        
+        covPosterior = covPrior - covRightSide
+        
+        #---
+        
+        if len(yTrain.shape) == 1:
+            yTrain = yTrain.reshape(-1, 1)
+        
+        x = self.solveKernelGLS(X = XTrain, 
+                                sigma = sigma,
+                                c = yTrain)
+        
+        meanPosterior = self.getKernelVectorProduct(X1 = XTest,
+                                                    X2 = XTrain,
+                                                    c = x)
+        
+        return meanPosterior, covPosterior
     
 
 # %% ../nbs/01_levelSetKDEx_univariate.ipynb 11

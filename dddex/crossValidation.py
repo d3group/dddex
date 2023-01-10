@@ -32,9 +32,9 @@ class QuantileCrossValidation:
     
     def __init__(self,
                  # An object with a `predict` method that must (!) have an argument called `probs`
-                 # that specifies which quantiles to predict. Further, `quantileEstimator` needs
+                 # that specifies which quantiles to predict. Further, `estimator` needs
                  # a `set_params` and `fit` method.
-                 quantileEstimator, 
+                 estimator, 
                  cvFolds, # An iterable yielding (train, test) splits as arrays of indices.
                  # dict or list of dicts with parameters names (`str`) as keys and distributions
                  # or lists of parameters to try. Distributions must provide a ``rvs``
@@ -66,9 +66,9 @@ class QuantileCrossValidation:
         #---
         
         if randomSearch:
-            self.parameterGrid = ParameterSampler(param_distributions = parameterGrid,
-                                                  n_iter = nIter,
-                                                  random_state = random_state)
+            self.parameterGrid = list(ParameterSampler(param_distributions = parameterGrid,
+                                                       n_iter = nIter,
+                                                       random_state = random_state).__iter__())
             
             self.randomSearch = True
             self.nIter = nIter
@@ -80,7 +80,7 @@ class QuantileCrossValidation:
             
         #---
         
-        self.quantileEstimator = copy.deepcopy(quantileEstimator)
+        self.estimator = copy.deepcopy(estimator)
         self.cvFolds = cvFolds
         self.probs = probs
         self.refitPerProb = refitPerProb
@@ -105,14 +105,14 @@ def fit(self: QuantileCrossValidation,
     X = np.array(X)
     y = np.array(y)
     
-    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(getFoldScore)(quantileEstimator = copy.deepcopy(self.quantileEstimator),
+    scoresPerFold = Parallel(n_jobs = self.n_jobs)(delayed(getFoldScore)(estimator = copy.deepcopy(self.estimator),
                                                                          parameterGrid = self.parameterGrid,
                                                                          cvFold = cvFold,
                                                                          probs = self.probs,
                                                                          X = X,
                                                                          y = y) for cvFold in self.cvFolds)
     
-    # scoresPerFold = [getFoldScore(quantileEstimator = copy.deepcopy(self.quantileEstimator),
+    # scoresPerFold = [getFoldScore(estimator = copy.deepcopy(self.estimator),
     #                               parameterGrid = self.parameterGrid,
     #                               cvFold = cvFold,
     #                               probs = self.probs,
@@ -148,11 +148,11 @@ def fit(self: QuantileCrossValidation,
         estimatorDict = dict()
         
         for params in paramsUnique:
-            quantileEstimator = copy.deepcopy(self.quantileEstimator)
-            quantileEstimator.set_params(**params)
+            estimator = copy.deepcopy(self.estimator)
+            estimator.set_params(**params)
             
-            quantileEstimator.fit(X = X, y = y)
-            estimatorDict[tuple(params.values())] = quantileEstimator
+            estimator.fit(X = X, y = y)
+            estimatorDict[tuple(params.values())] = estimator
         
         #---
         
@@ -162,17 +162,17 @@ def fit(self: QuantileCrossValidation,
         
     #---
     
-    quantileEstimator = copy.deepcopy(self.quantileEstimator)
-    quantileEstimator.set_params(**paramsBest)
-    quantileEstimator.fit(X = X, y = y)
+    estimator = copy.deepcopy(self.estimator)
+    estimator.set_params(**paramsBest)
+    estimator.fit(X = X, y = y)
 
-    self.bestEstimator = quantileEstimator
+    self.bestEstimator = estimator
 
 # %% ../nbs/04_CrossValidation.ipynb 9
 # This function evaluates the newsvendor performance for different bin sizes for one specific fold.
 # The considered bin sizes
 
-def getFoldScore(quantileEstimator, parameterGrid, cvFold, probs, X, y):
+def getFoldScore(estimator, parameterGrid, cvFold, probs, X, y):
     
     indicesTrain = cvFold[0]
     indicesTest = cvFold[1]
@@ -200,8 +200,8 @@ def getFoldScore(quantileEstimator, parameterGrid, cvFold, probs, X, y):
     
     # Necessary to ensure compatability with wSAA-models etc.
     try:
-        quantileEstimator.refitPointEstimator(X = XTrainFold, 
-                                              y = yTrainFold)
+        estimator.refitPointEstimator(X = XTrainFold, 
+                                      y = yTrainFold)
     except:
         pass
 
@@ -209,14 +209,14 @@ def getFoldScore(quantileEstimator, parameterGrid, cvFold, probs, X, y):
 
     for params in parameterGrid:
 
-        quantileEstimator.set_params(**params)
+        estimator.set_params(**params)
 
-        quantileEstimator.fit(X = XTrainFold,
-                              y = yTrainFold)
+        estimator.fit(X = XTrainFold,
+                      y = yTrainFold)
 
-        quantilesDf = quantileEstimator.predict(X = XTestFold,
-                                                probs = probs,
-                                                outputAsDf = True)
+        quantilesDf = estimator.predict(X = XTestFold,
+                                        probs = probs,
+                                        outputAsDf = True)
         
         costsDict = {prob: getPinballLoss(decisions = quantilesDf.loc[:, prob],
                                           yTest = yTestFold,
@@ -308,9 +308,9 @@ class QuantileCrossValidationLSx:
         #---
         
         if randomSearchLSx:
-            self.parameterGridLSx = ParameterSampler(param_distributions = parameterGridLSx,
-                                                     n_iter = nIterLSx,
-                                                     random_state = random_state)
+            self.parameterGridLSx = list(ParameterSampler(param_distributions = parameterGridLSx,
+                                                          n_iter = nIterLSx,
+                                                          random_state = random_state).__iter__())
             self.randomSearchLSx = True
             self.nIterLsx = nIterLSx
             self.random_state = random_state
@@ -322,9 +322,9 @@ class QuantileCrossValidationLSx:
         
         if randomSearchEstimator:
             
-            self.parameterGridEstimator = ParameterSampler(param_distributions = parameterGridEstimator,
-                                                           n_iter = nIterEstimator,
-                                                           random_state = random_state)
+            self.parameterGridEstimator = list(ParameterSampler(param_distributions = parameterGridEstimator,
+                                                                n_iter = nIterEstimator,
+                                                                random_state = random_state).__iter__())
             self.randomSearchEstimator = True
             self.nIterEstimator = nIterEstimator
             self.random_state = random_state
@@ -572,7 +572,7 @@ class DensityCrossValidation:
     
     def __init__(self,
                  # An object with a `predict` method that must (!) have an argument called `probs`
-                 # that specifies which quantiles to predict. Further, `quantileEstimator` needs
+                 # that specifies which quantiles to predict. Further, `estimator` needs
                  # a `set_params` and `fit` method.
                  estimator, 
                  cvFolds, # An iterable yielding (train, test) splits as arrays of indices.
@@ -601,9 +601,9 @@ class DensityCrossValidation:
         #---
         
         if randomSearch:
-            self.parameterGrid = ParameterSampler(param_distributions = parameterGrid,
-                                                  n_iter = nIter,
-                                                  random_state = random_state)
+            self.parameterGrid = list(ParameterSampler(param_distributions = parameterGrid,
+                                                       n_iter = nIter,
+                                                       random_state = random_state).__iter__())
             
             self.randomSearch = True
             self.nIter = nIter
@@ -795,9 +795,9 @@ class DensityCrossValidationLSx:
         #---
         
         if randomSearchLSx:
-            self.parameterGridLSx = ParameterSampler(param_distributions = parameterGridLSx,
-                                                     n_iter = nIterLSx,
-                                                     random_state = random_state)
+            self.parameterGridLSx = list(ParameterSampler(param_distributions = parameterGridLSx,
+                                                          n_iter = nIterLSx,
+                                                          random_state = random_state).__iter__())
             self.randomSearchLSx = True
             self.nIterLsx = nIterLSx
             self.random_state = random_state
@@ -809,9 +809,9 @@ class DensityCrossValidationLSx:
         
         if randomSearchEstimator:
             
-            self.parameterGridEstimator = ParameterSampler(param_distributions = parameterGridEstimator,
-                                                           n_iter = nIterEstimator,
-                                                           random_state = random_state)
+            self.parameterGridEstimator = list(ParameterSampler(param_distributions = parameterGridEstimator,
+                                                                n_iter = nIterEstimator,
+                                                                random_state = random_state).__iter__())
             self.randomSearchEstimator = True
             self.nIterEstimator = nIterEstimator
             self.random_state = random_state
@@ -853,13 +853,13 @@ def fit(self: DensityCrossValidationLSx,
                                                                                         y = y,
                                                                                         X = X) for cvFold in self.cvFolds)
     
-    scoresPerFold = [getFoldScoreLSx_wasserstein(estimatorLSx = copy.deepcopy(self.estimatorLSx),
-                                                 parameterGridLSx = self.parameterGridLSx,
-                                                 parameterGridEstimator = self.parameterGridEstimator,
-                                                 cvFold = cvFold,
-                                                 p = self.p,
-                                                 y = y,
-                                                 X = X) for cvFold in self.cvFolds]
+    # scoresPerFold = [getFoldScoreLSx_wasserstein(estimatorLSx = copy.deepcopy(self.estimatorLSx),
+    #                                              parameterGridLSx = self.parameterGridLSx,
+    #                                              parameterGridEstimator = self.parameterGridEstimator,
+    #                                              cvFold = cvFold,
+    #                                              p = self.p,
+    #                                              y = y,
+    #                                              X = X) for cvFold in self.cvFolds]
 
     self.cvResults_raw = scoresPerFold
     meanCostsDf = sum(scoresPerFold) / len(scoresPerFold)

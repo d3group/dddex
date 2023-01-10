@@ -70,7 +70,7 @@ def loadDataBakery(returnXY = True):
     #---
     
     if returnXY:       
-        X = np.array(data.drop(['demand', 'label', 'id'], axis = 1))
+        X = np.array(data.drop(['demand', 'label', 'id', 'date'], axis = 1))
         y = np.ravel(data['demand'])
 
         XTrain = X[data['label'] == 'train']
