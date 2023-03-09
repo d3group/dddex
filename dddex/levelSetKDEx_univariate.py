@@ -8,10 +8,14 @@ from fastcore.utils import *
 
 import pandas as pd
 import numpy as np
+from scipy import sparse
 from sklearn.neighbors import NearestNeighbors
 
+import itertools
 from collections import defaultdict, Counter, deque
 import warnings
+import copy
+import psutil
 
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
@@ -151,7 +155,7 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
                     inverseDistances = 1 / distances
 
                     weightsDataList.append((inverseDistances / inverseDistances.sum(), 
-                                            np.array(neighborsList[i])))
+                                            np.array(neighborsList[i], dtype = 'uintc')))
             
             weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                          outputType = outputType, 
@@ -160,7 +164,8 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
                                                          equalWeights = False)
         
         else:
-            weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+            weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors, dtype = 'uintc')) 
+                               for neighbors in neighborsList]
 
             weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                          outputType = outputType, 
@@ -407,7 +412,7 @@ def generateBins(binSize: int, # Size of the bins of values of `yPred` being gro
             binIndex += 1
             currentBinSize = 0
            
-    indicesPerBin = {binIndex: np.array(indices) for binIndex, indices in indicesPerBin.items()}
+    indicesPerBin = {binIndex: np.array(indices, dtype = 'uintc') for binIndex, indices in indicesPerBin.items()}
     
     lowerBoundPerBin = pd.Series(lowerBoundPerBin)
     lowerBoundPerBin.index.name = 'binIndex'
@@ -571,7 +576,7 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
                     inverseDistances = 1 / distances
 
                     weightsDataList.append((inverseDistances / inverseDistances.sum(), 
-                                            np.array(neighborsList[i])))
+                                            np.array(neighborsList[i], dtype = 'uintc')))
             
             weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                          outputType = outputType, 
@@ -580,7 +585,8 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
                                                          equalWeights = False)
             
         else:
-            weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+            weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors, dtype = 'uintc')) 
+                               for neighbors in neighborsList]
 
             weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                          outputType = outputType, 
@@ -612,19 +618,19 @@ class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
     def __init__(self, 
                  estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
                  binSize: int=None, # Size of the bins created while running fit.
-                 # Determines behaviour of method `getWeights`. If False, all weights receive the same  
-                 # value. If True, the distance of the point forecasts is taking into account.
-                 weightsByDistance: bool=False, 
+                 # Setting 'efficientRAM = TRUE' is only necessary when there are roughly umore than 200k training observations to avoid
+                 # an overusage of RAM. This setting causes the run-time of the algorithm of the weights computation to linearly depend on 
+                 # 'binSize'. Because of that the algorithm becomes quite slow for 'binSize' > 10k'.
+                 efficientRAM: bool=False,
                  ):
         
         super(BaseEstimator, self).__init__(estimator = estimator,
-                                            binSize = binSize,
-                                            weightsByDistance = weightsByDistance)
+                                            binSize = binSize)
         
         self.yTrain = None
         self.yPredTrain = None
-        self.nearestNeighborsOnPreds = None
         self.fitted = False
+        self.efficientRAM = efficientRAM
         
     #---
     
@@ -686,7 +692,7 @@ class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
                    outputType: str='onlyPositiveWeights', 
                    # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
                    # density of each sample for scaling purposes.
-                   scalingList: list=None, 
+                   scalingList: list=None,
                    ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
         
         __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
@@ -713,7 +719,7 @@ class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
                                           neighborsRemoved = self._neighborsRemoved,
                                           neighborsAdded = self._neighborsAdded,
                                           binSize = self.binSize,
-                                          returnWeights = True)
+                                          efficientRAM = self.efficientRAM)
         
         weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                      outputType = outputType, 
@@ -737,12 +743,27 @@ def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being gro
         duplicationDict[value].append(index)
         counterDict[value] += 1
     
-    yPredUnique = np.sort(list(duplicationDict.keys()))
+    duplicationDict = dict(duplicationDict)
+    counterDict = dict(counterDict)
     
-    neighborsPerPred = dict()
+    yPredUnique = np.sort(list(duplicationDict.keys()))
     
     #---
     
+    # Here we initiate our search for the nearest neighbors by creating the neighborhood of the lowest point prediction.
+    # VARIABLES:
+    # a) 'neighbors': A Collection.deque object that keeps track of the training indices which are the nearest neighbors of 
+    # the current observation. A deque object allows us to very efficiently remove values from the left and right side of the last.
+    # b) 'neighborsMaxIter': The index of yPredUnique that has to be considered next (and hasn't yet been considered).
+    # neighborsMaxIter has to be set to len(yPredUnique), when we iterated over all yPredUnique.
+    #
+    # PROCEDURE
+    # 1) We simply start at the lowest predicted value, iterate from here on over the other predicted values and keep
+    # adding indices of neighbors by using 'duplicationDict', whose keys are the predicted values
+    # and whose entries are the indices of the training instances that all share the same point prediction.
+    # 2) 'neighborsMaxIter' is eventually being set, so we can use this information during the further search down below. 
+    
+    neighborsPerPred = dict()
     neighbors = deque()
     
     for k in range(len(yPredUnique)):
@@ -755,9 +776,11 @@ def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being gro
             break
         
         if k == (len(yPredUnique) - 1):
-            neighborsMaxIter = len(yPred)
-            
-    neighborsPerPred[yPredUnique[0]] = list(neighbors)
+            neighborsMaxIter = len(yPredUnique)
+    
+    neighborsPerPred[yPredUnique[0]] = np.array(neighbors, dtype = 'uintc')
+    neighborsUnchangedLoop = True
+    neighborsUnchangedLoop = True
     
     #---
     
@@ -769,12 +792,35 @@ def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being gro
         removeCounter = 0
         addCounter = 0
         
+        if i % 10000 == 0:
+            process = psutil.Process(os.getpid())
+            print(f"Inside Loop {i}: Memory used by Jupyter notebook: {process.memory_info().rss / 2**20:.2f} MB")
+            
         predCurrent = yPredUnique[i]
         
         #---
-            
-        # Check and Clean current neighborhood before starting the loop
-            
+        
+        # CHECK AND CLEAN CURRENT NEIGHBORHOOD BEFORE STARTING THE LOOP
+        # 
+        # One very obvious case where we need such a cleaning step is the following:
+        # Assume yPredUnique = [1, 2, 3] and binsize = 2. In this case the loop below over k in 
+        # range(neighborsMaxIter, len(yPredUnique), 1) creates the neighborhood of indices [0, 1, 2] (all indices) 
+        # for 2. As we have iterated over all possible neighbors, below loop isn't considered anymore. When we now
+        # consider the prediction 3, its neighborhood is supposed to consist of [1, 2]. For that reason we must check
+        # if it is possible to remove the left-side of the neighborhood in case 'neighbors' is bigger than bin-size.
+        # 
+        # So what are we doing here?
+        # 1) We enter the loop, when the number of currently detected neighbors is higher than binSize. This can
+        # naturally occur, when the the outer neighbors contain identical predicted values.
+        # 2) We first compute the distance of the current prediction to the two outer predictions.
+        # 3) When the current and left-most prediction are not identical and further apart than distanceToMax,
+        # then we look up how many indices belong to the left-most prediction. If this is not the case, we do nothing 
+        # and leave the while loop.
+        # 4) If the number of neighbors would still be higher than binSize after removing all left-most neighbors,
+        # we remove all left-most neighbors and go back to step (3). Otherwise we stop.
+        
+        neighborsUnchangedCheck = True
+        
         if len(neighbors) > binSize:
             
             checkNeeded = True
@@ -792,6 +838,8 @@ def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being gro
                         for p in range(countIdenticalMin):
                             neighbors.popleft()
                             
+                        neighborsUnchangedCheck = False
+                        
                     else:
                         checkNeeded = False
                 else:
@@ -799,17 +847,50 @@ def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being gro
 
         #---
         
+        # After checking and cleaning 'neighbors', there are 3 different scenarios how 'neighbors' looks like:
+        # 1) 'neighbors' is either smaller than or equal to 'binSize' and no removal of indices has been conducted 
+        #
+        # 2) 'neighbors' is bigger than 'binSize' and no removal of the left-most preds has been conducted because either
+        # a) the current prediction and left-most prediction are identical
+        # b) distanceToMin is smaller than or equal to distanceToMax
+        # c) removing the left most preds would have made neighbors smaller than binSize
+        #
+        # 3) 'neighbors' is bigger than or equal to 'binSize' and as many left-most preds have been removed until the removal
+        # of further preds would have made neighbors smaller than 'binSize'.
+        
+        # Now we compute distanceMin and distanceMax and start looking for new nearest neighbors beginning with 'neighborsMaxIter',
+        # which is obviously the next bigger pred to the currently highest pred that is part of 'neighbors'.
+        #
+        # We have to consider 5 different cases:
+        # 1) 'neighbors' is smaller than 'binSize' --> the new pred is always added
+        # 2) The new pred is closer to the current prediction than the left-most prediction --> the left-most predictions are
+        # all removed and the new predictions are added.
+        # 3) The new prediction is exactly as far away as the left-most prediction --> new predictions are added without any removal
+        # 4) The new prediction is as far away as the currently right-most prediction of 'neighbors' --> new predictions are added
+        # without any removal
+        # 5) None of the above 4 cases apply --> break and set 'neighborsMaxIter' to the current index k of 'yPredUnique'.
+        # 
+        # NOTE: Can case (4) ever happen? I mean, we are iterating over 'yPredUnique'!?!?!
+
         distanceToMin = predCurrent - yPred[neighbors[0]]
         distanceToMax = yPred[neighbors[len(neighbors) - 1]] - predCurrent
-
+        
+        # If the neighbors-object has not been changed since the last considered point
+        # prediction for which we computed the nearest neighbors, we simply reuse the same
+        # neighbors object in RAM (see below).
+        neighborsUnchangedLoop = True
+        
         for k in range(neighborsMaxIter, len(yPredUnique), 1):
+            
             predNew = yPredUnique[k]
             distance = predNew - predCurrent 
-
+            
             if len(neighbors) < binSize:
                 neighbors.extend(duplicationDict[predNew])
+                
                 distanceToMax = yPred[neighbors[len(neighbors) - 1]] - predCurrent
                 addCounter += counterDict[predNew]
+                neighborsUnchangedLoop = False
                 
             elif distance < distanceToMin:
                 neighbors.extend(duplicationDict[predNew])
@@ -822,31 +903,51 @@ def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being gro
                 removeCounter += countIdenticalMin
                 distanceToMin = predCurrent - yPred[neighbors[0]]
                 distanceToMax = yPred[neighbors[len(neighbors) - 1]] - predCurrent
-
+                neighborsUnchangedLoop = False
+                
             elif distance == distanceToMin:
                 neighbors.extend(duplicationDict[predNew])
+                
                 distanceToMax = yPred[neighbors[len(neighbors) - 1]] - predCurrent
                 addCounter += counterDict[predNew]
+                neighborsUnchangedLoop = False
                 
             elif distance == distanceToMax:
                 neighbors.extend(duplicationDict[predNew])
                 addCounter += counterDict[predNew]
+                neighborsUnchangedLoop = False
                 
+            # We only ever end up here, if 'predNew' hasn't been added to 'neighbors'.
             else:
+                    
                 neighborsMaxIter = k
                 break
 
-            # If we end up down here, it means that all train preds have sucessuflly been
-            # added to the current neighborhood. For that reason, k has to be set to len(yPred)
-            # in order to stop the code from starting the loop.
+            # If we end up down here, it means that all train preds have sucessuflly been added to the 
+            # current neighborhood. For that reason, neighborsMaxIter has to be set to len(yPred) in order
+            # to stop the code from starting the loop.
+            # We only end up here, if the highest point prediction has been added during this iteration.
+            # We have to treat this is a special case using the 'addedHighestPredDuringIteration' variable.
             if k == (len(yPredUnique) - 1):
-                neighborsMaxIter = len(yPred)
+                neighborsMaxIter = len(yPredUnique)
+                
+        # Ideas to solve RAM problems:
+        # 1) Save neighbors into Sparse Array (neighbors have to be padded in some cases)
+        # 2) Don't save redundant neighbors objects (already done here)
+        # 3) Save neighbors Objects in Memory
         
-        neighborsPerPred[predCurrent] = list(neighbors)
+        if neighborsUnchangedCheck and neighborsUnchangedLoop:
+            neighborsPerPred[predCurrent] = neighborsPerPred[yPredUnique[i-1]]
+        else:
+            neighborsPerPred[predCurrent] = np.array(neighbors, dtype = 'uintc')
+
         neighborsRemoved.append(removeCounter)
         neighborsAdded.append(addCounter)
         
     #---
+    
+    process = psutil.Process(os.getpid())
+    print(f"After Loop: Memory used by Jupyter notebook: {process.memory_info().rss / 2**20:.2f} MB")
  
     return neighborsPerPred, np.array(neighborsRemoved), np.array(neighborsAdded)
 
@@ -884,6 +985,7 @@ def getNeighborsTest(binSize: int, # Size of the bins of values of `yPred` being
     for i, predCurrent in enumerate(yPredUnique):
         
         neighbors = deque(neighborsDictTrain[yPredTrainClosest[i]])
+        
         neighborsMaxIndex = yPredTrainUniqueRanking[yPredTrain[neighbors[len(neighbors) - 1]]]
         
         distanceToMin = predCurrent - yPredTrain[neighbors[0]]
@@ -940,13 +1042,17 @@ def getNeighborsTest(binSize: int, # Size of the bins of values of `yPred` being
             else:
                 break
         
-        neighborsPerPred[predCurrent] = list(neighbors)
+        neighborsPerPred[predCurrent] = np.array(neighbors, dtype = 'uintc')
         
     #---
  
     return neighborsPerPred
 
 # %% ../nbs/01_levelSetKDEx_univariate.ipynb 24
+# Setting 'efficientRAM = TRUE' is only necessary when there are roughly umore than 200k training observations.
+# This setting causes the run-time of the algorithm to linearly depend on the 'binSize', which can become quite
+# slow for bin-sizes above 10k.
+
 def getKernelValues(yPred,
                     yPredTrain,
                     neighborsDictTest,
@@ -954,7 +1060,7 @@ def getKernelValues(yPred,
                     neighborsRemoved,
                     neighborsAdded,
                     binSize,
-                    returnWeights = True):
+                    efficientRAM = False):
     
     duplicationDict = defaultdict(list)
     counterDict = defaultdict(int)
@@ -972,6 +1078,7 @@ def getKernelValues(yPred,
     #---
     
     kernelValuesList = list()
+    weightsDataList = list()
     
     for i in range(len(yPred)):
         
@@ -1028,29 +1135,45 @@ def getKernelValues(yPred,
         #---
         
         kernelValuesUnique = np.concatenate([kernelValuesLeft, kernelValuesRight], axis = 0)
-        kernelValuesList.append(kernelValuesUnique)
+        
+        if efficientRAM:
+            weightsList = []
+            indicesList = []
+
+            for index in np.where(kernelValuesUnique > 0)[0]:
+                indices = duplicationDict[yPredTrainUnique[index]]
+                indicesList.extend(indices)
+
+                weight = kernelValuesUnique[index]
+                weightsList.extend([weight for i in range(len(indices))])
+            
+            weightsArray = np.array(weightsList) / sum(weightsList)            
+            weightsDataList.append((weightsArray, np.array(indicesList, dtype = 'uintc')))
+        
+        else:       
+            kernelValuesList.append(kernelValuesUnique)
     
     #---
     
-    kernelMatrixUnique = np.array(kernelValuesList)
-    kernelMatrix = np.zeros(shape = (len(yPred), len(yPredTrain)))
+    process = psutil.Process(os.getpid())
+    print(f"After Kernel Values: Memory used by Jupyter notebook: {process.memory_info().rss / 2**20:.2f} MB")
     
-    for index, predTrain in enumerate(yPredTrainUnique):
-        kernelMatrix[:, duplicationDict[predTrain]] = kernelMatrixUnique[:, [index]]
+    if efficientRAM:
+        return weightsDataList
     
-    #---
+    else:
     
-    if returnWeights:
-        weightsDataList = list()
+        kernelMatrixUnique = np.array(kernelValuesList)
+        kernelMatrix = np.zeros(shape = (len(yPred), len(yPredTrain)))
+
+        for index, predTrain in enumerate(yPredTrainUnique):
+            kernelMatrix[:, duplicationDict[predTrain]] = kernelMatrixUnique[:, [index]]
 
         for i in range(len(yPred)):
             indices = np.where(kernelMatrix[i,:] > 0)[0]
             weights = kernelMatrix[i, indices]
             weights = weights / weights.sum()
             weightsDataList.append((weights, indices))
-        
+
         return weightsDataList
-    
-    else:
-        return kernelMatrix      
-        
+
