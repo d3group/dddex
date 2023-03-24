@@ -190,8 +190,7 @@ def getFoldScore(estimator, parameterGrid, cvFold, probs, X, y):
 
     # By setting 'X = None', the SAA results are only computed for a single observation (they are independent of X anyway).
     # In order to receive the final dataframe of SAA results, we simply duplicate this single row as many times as needed.
-    quantilesSAA = SAA_fold.predict(X = None, probs = probs, outputAsDf = True)
-    quantilesDfSAA = pd.concat([quantilesSAA] * XTestFold.shape[0], axis = 0).reset_index(drop = True)
+    quantilesDfSAA = SAA_fold.predict(X = XTestFold, probs = probs)
     
     costsDictSAA = {prob: getPinballLoss(decisions = quantilesDfSAA.loc[:, prob],
                                          yTest = yTestFold,
@@ -215,8 +214,7 @@ def getFoldScore(estimator, parameterGrid, cvFold, probs, X, y):
                       y = yTrainFold)
 
         quantilesDf = estimator.predict(X = XTestFold,
-                                        probs = probs,
-                                        outputAsDf = True)
+                                        probs = probs)
         
         costsDict = {prob: getPinballLoss(decisions = quantilesDf.loc[:, prob],
                                           yTest = yTestFold,
@@ -487,8 +485,7 @@ def getFoldScoreLSx(estimatorLSx, parameterGridLSx, parameterGridEstimator, cvFo
 
     # By setting 'X = None', the SAA results are only computed for a single observation (they are independent of X anyway).
     # In order to receive the final dataframe of SAA results, we simply duplicate this single row as many times as needed.
-    quantilesSAA = SAA_fold.predict(X = None, probs = probs, outputAsDf = True)
-    quantilesDfSAA = pd.concat([quantilesSAA] * XTestFold.shape[0], axis = 0).reset_index(drop = True)
+    quantilesDfSAA = SAA_fold.predict(X = XTestFold, probs = probs)
     
     costsDictSAA = {prob: getPinballLoss(decisions = quantilesDfSAA.loc[:, prob],
                                          yTest = yTestFold,
@@ -516,8 +513,7 @@ def getFoldScoreLSx(estimatorLSx, parameterGridLSx, parameterGridEstimator, cvFo
                              y = yTrainFold)
 
             quantilesDf = estimatorLSx.predict(X = XTestFold,
-                                                 probs = probs,
-                                                 outputAsDf = True)
+                                                 probs = probs)
 
             #---
             
@@ -691,7 +687,7 @@ def getFoldScore_wasserstein(estimator, parameterGrid, cvFold, p, X, y):
 
     # By setting 'X = None', the SAA density is only computed for a single observation (the density is independent of X anyway)
     # and simply duplicated as many times as needed.
-    densitiesSAA = SAA_fold.getWeights(X = None, outputType = 'onlyPositiveWeightsValues') * XTestFold.shape[0]
+    densitiesSAA = SAA_fold.getWeights(X = XTestFold, outputType = 'onlyPositiveWeightsValues')
     
     wassersteinDistSAA = getWassersteinDistances(densities = densitiesSAA,
                                                  yTest = yTestFold,
@@ -916,7 +912,7 @@ def getFoldScoreLSx_wasserstein(estimatorLSx, parameterGridLSx, parameterGridEst
 
     # By setting 'X = None', the SAA density is only computed for a single observation (the density is independent of X anyway)
     # and simply duplicated as many times as needed.
-    densitiesSAA = SAA_fold.getWeights(X = None, outputType = 'onlyPositiveWeightsValues') * XTestFold.shape[0]
+    densitiesSAA = SAA_fold.getWeights(X = XTestFold, outputType = 'onlyPositiveWeightsValues')
     
     wassersteinDistSAA = getWassersteinDistances(densities = densitiesSAA,
                                                  yTest = yTestFold,

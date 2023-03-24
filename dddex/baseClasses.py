@@ -102,20 +102,29 @@ class BaseWeightsBasedEstimator(BaseEstimator):
           the second one the corresponding value of `yTrain`. The probabilities corresponding to identical values of `yTrain` are aggregated.
         """
         pass
-     
+    
     #---
     
     def predict(self : BaseWeightsBasedEstimator, 
                 X: np.ndarray, # Feature matrix for which conditional quantiles are computed.
                 probs: list, # Probabilities for which quantiles are computed.
-                outputAsDf: bool=True, # Determines output. Either a dataframe with probs as columns or a dict with probs as keys.
                 # Optional. List with length X.shape[0]. Values are multiplied to the predictions
                 # of each sample to rescale values.
-                scalingList: list=None, 
-                ): 
-        """ Predict p-quantiles based on a reweighting of the empirical distribution function."""
+                scalingList: list=None,
+                ) -> np.ndarray: 
         
-        # Checks
+        """
+        Predict p-quantiles based on a reweighting of the empirical distribution function.
+        If the number of observations of either `X` or `yTrain` is above a certain threshold, 
+        the results aren't calculated in one go, but rather by sequentially computing the
+        predictions for 100 different subsets of the observations of `X`. We do this to
+        avoid because intermediary objects like `distributionDataList` are stored in 
+        '(X.shape[0], XTrain.shape[0])' space in the worst case. Hence, this can cause the 
+        program to crash in extreme cases.
+        """
+        
+        
+        # CHECKS
         if isinstance(probs, int) or isinstance(probs, float):
             if probs >= 0 and probs <= 1:
                 probs = [probs]
@@ -129,29 +138,53 @@ class BaseWeightsBasedEstimator(BaseEstimator):
             probs = np.array(probs)
         except:
             raise ValueError("Can't convert `probs` to 1-dimensional array.")
+            
+        if len(X.shape) == 1:
+            X = X.reshape(1, -1)
         
         #---
-                             
-        distributionDataList = self.getWeights(X = X,
-                                               outputType = 'cumulativeDistribution',
-                                               scalingList = scalingList)        
         
-        quantilesList = list()
-        
-        for probsDistribution, valuesDistribution in distributionDataList:
+        if (X.shape[0] > 100) and ((X.shape[0] > 25000) or (self.yTrain.shape[0] > 25000)):
             
-            # A tolerance term of 10^-8 is substracted from prob to account for rounding errors due to numerical precision.
-            quantileIndices = np.searchsorted(a = probsDistribution, v = probs - 10**-8, side = 'left')
-            quantilesList.append(valuesDistribution[quantileIndices])
-    
-        quantilesDf = pd.DataFrame(quantilesList)
-        quantilesDf.columns = probs
-
-        if outputAsDf:
-            return quantilesDf
-
+            subsetSize = int(X.shape[0] / 100)
+            splitPoints = [subsetSize * i for i in range(100)]
+            splitPoints.append(X.shape[0])
+            
         else:
-            return quantilesDf.to_dict(orient = 'series')
+            splitPoints = [0, X.shape[0]]
+            
+        
+        quantilesDfList = list()
+        
+        for i in range(len(splitPoints) - 1):
+            
+            XSubset = X[splitPoints[i]:splitPoints[i+1], :]
+            
+            if not scalingList is None:
+                scalingListSubset = scalingList[splitPoints[i]:splitPoints[i+1]]
+            else:
+                scalingListSubset = None
+            
+            distributionDataList = self.getWeights(X = XSubset,
+                                                   outputType = 'cumulativeDistribution',
+                                                   scalingList = scalingListSubset)        
+
+            quantilesList = list()
+
+            for probsDistribution, valuesDistribution in distributionDataList:
+
+                # A tolerance term of 10^-8 is substracted from prob to account for rounding errors due to numerical precision.
+                quantileIndices = np.searchsorted(a = probsDistribution, v = probs - 10**-8, side = 'left')
+                quantilesList.append(valuesDistribution[quantileIndices])
+
+            quantilesDf = pd.DataFrame(quantilesList)
+            quantilesDf.columns = probs
+            
+            quantilesDfList.append(quantilesDf)
+            
+        quantilesDf = pd.concat(quantilesDfList, axis = 0).reset_index(drop = True)
+        
+        return quantilesDf
     
     #---
     

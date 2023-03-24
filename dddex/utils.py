@@ -8,7 +8,9 @@ from fastcore.utils import *
 import pandas as pd
 import numpy as np
 from collections import Counter, defaultdict
+
 import copy
+import warnings
 
 # %% auto 0
 __all__ = ['restructureWeightsDataList', 'summarizeWeightsData', 'restructureWeightsDataList_multivariate',
@@ -16,6 +18,17 @@ __all__ = ['restructureWeightsDataList', 'summarizeWeightsData', 'restructureWei
 
 # %% ../nbs/05_utils.ipynb 7
 def restructureWeightsDataList(weightsDataList, outputType = 'onlyPositiveWeights', y = None, scalingList = None, equalWeights = False):
+    
+    # CHECKS AND WARNINGS
+    if not scalingList is None:
+        
+        if len(scalingList) > len(weightsDataList):
+            warnings.warn("'scalingList' is longer than 'weightsDataList'")
+            
+        elif len(scalingList) > len(weightsDataList):
+            raise ValueError("'scalingList' mustn't be shorter than 'weightsDataList'")
+    
+    #---
     
     if outputType == 'all':
         
@@ -153,6 +166,17 @@ def summarizeWeightsData(weightsPos, yWeightPos, equalWeights = False):
 
 # %% ../nbs/05_utils.ipynb 11
 def restructureWeightsDataList_multivariate(weightsDataList, outputType = 'onlyPositiveWeights', y = None, scalingList = None, equalWeights = False):
+    
+    # CHECKS AND WARNINGS
+    if not scalingList is None:
+        
+        if len(scalingList) > len(weightsDataList):
+            warnings.warn("'scalingList' is longer than 'weightsDataList'")
+            
+        elif len(scalingList) > len(weightsDataList):
+            raise ValueError("'scalingList' mustn't be shorter than 'weightsDataList'")
+            
+    #---
     
     if outputType == 'all':
         

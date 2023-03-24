@@ -131,4 +131,6 @@ d = { 'settings': { 'branch': 'main',
                                                                                'dddex/wSAA.py'),
                             'dddex.wSAA.SampleAverageApproximation.fit': ('wsaa.html#sampleaverageapproximation.fit', 'dddex/wSAA.py'),
                             'dddex.wSAA.SampleAverageApproximation.getWeights': ( 'wsaa.html#sampleaverageapproximation.getweights',
-                                                                                  'dddex/wSAA.py')}}}
+                                                                                  'dddex/wSAA.py'),
+                            'dddex.wSAA.SampleAverageApproximation.predict': ( 'wsaa.html#sampleaverageapproximation.predict',
+                                                                               'dddex/wSAA.py')}}}

@@ -8,6 +8,7 @@ from fastcore.utils import *
 
 import pandas as pd
 import numpy as np
+import copy
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.base import MetaEstimatorMixin
@@ -29,27 +30,42 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
                     y = y, 
                     **kwargs)
         
-        self.y = y
+        self.yTrain = y
+        
+        n_jobs = copy.deepcopy(self.get_params()['n_jobs'])
+        
+        self.set_params(n_jobs = 1)
+        
         self.leafIndicesTrain = self.apply(X)
+        
+        self.set_params(n_jobs = n_jobs)
     
     #---
     
     def getWeights(self, 
-               X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
-               # Specifies structure of the returned density estimates. One of: 
-               # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
-               outputType: str='onlyPositiveWeights', 
-               # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
-               # density of each sample for scaling purposes.
-               scalingList: list=None, 
-               ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None, 
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
         
         __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
         
         #---
-
+        
+        n_jobs = copy.deepcopy(self.get_params()['n_jobs'])
+        
+        self.set_params(n_jobs = 1)
+        
         leafIndicesDf = self.apply(X)
-
+        
+        self.set_params(n_jobs = n_jobs)
+        
+        #---
+        
         weightsDataList = list()
 
         for leafIndices in leafIndicesDf:
@@ -72,7 +88,7 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
 
         weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
                                                      outputType = outputType, 
-                                                     y = self.y, 
+                                                     y = self.yTrain, 
                                                      scalingList = scalingList,
                                                      equalWeights = False)
 
@@ -93,7 +109,6 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
         
         return super(MetaEstimatorMixin, self).predict(X = X,
                                                        probs = probs, 
-                                                       outputAsDf = outputAsDf,
                                                        scalingList = scalingList)
     
     #---
@@ -143,21 +158,85 @@ class SampleAverageApproximation(BaseWeightsBasedEstimator):
         
         __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
         
-        #---
-
-        if X is None:
+        # If no scaling is necessary, we can simply compute the data of the weights for a single observation and
+        # then simply duplicate it.
+        if (X is None) or (scalingList is None) or (outputType == 'onlyPositiveWeights'):
+            
             neighborsList = [np.arange(len(self.yTrain))]
+            weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+            
+            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                         outputType = outputType, 
+                                                         y = self.yTrain,
+                                                         scalingList = scalingList,
+                                                         equalWeights = True)
+            
+            if not X is None:
+                weightsDataList = weightsDataList * X.shape[0]
+        
         else:
+            
             neighborsList = [np.arange(len(self.yTrain))] * X.shape[0]
 
-        # weightsDataList is a list whose elements correspond to one test prediction each. 
-        weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+            weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
 
-        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                     outputType = outputType, 
-                                                     y = self.yTrain,
-                                                     scalingList = scalingList,
-                                                     equalWeights = True)
+            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                         outputType = outputType, 
+                                                         y = self.yTrain,
+                                                         scalingList = scalingList,
+                                                         equalWeights = True)
 
         return weightsDataList
+    
+    #---
+    
+    def predict(self : SampleAverageApproximation, 
+                X: np.ndarray, # Feature matrix for which conditional quantiles are computed.
+                probs: list, # Probabilities for which quantiles are computed.
+                # Optional. List with length X.shape[0]. Values are multiplied to the predictions
+                # of each sample to rescale values.
+                scalingList: list=None, 
+                ) -> np.ndarray: 
+        
+        """
+        Predict p-quantiles based on a reweighting of the empirical distribution function.
+        In comparison to all other weights-based approaches, SAA only needs to compute
+        the quantile predictions for one observation and then simply duplicate them.
+        """
+        
+        
+        # CHECKS
+        if isinstance(probs, int) or isinstance(probs, float):
+            if probs >= 0 and probs <= 1:
+                probs = [probs]
+            else:
+                raise ValueError("The values specified via 'probs' must lie between 0 and 1!")           
+                 
+        if any([prob > 1 or prob < 0 for prob in probs]):
+            raise ValueError("The values specified via 'probs' must lie between 0 and 1!")
+            
+        try:
+            probs = np.array(probs)
+        except:
+            raise ValueError("Can't convert `probs` to 1-dimensional array.")
+        
+        #---
+
+        distributionData = self.getWeights(X = None,
+                                           outputType = 'cumulativeDistribution',
+                                           scalingList = None)        
+
+        # A tolerance term of 10^-8 is substracted from prob to account for rounding errors due to numerical precision.
+        quantileIndices = np.searchsorted(a = distributionData[0][0], v = probs - 10**-8, side = 'left')
+        quantiles = distributionData[0][1][quantileIndices]
+        
+        quantilesDf = pd.DataFrame([quantiles])
+        quantilesDf.columns = probs
+        
+        quantilesDf_duplicated = pd.concat([quantilesDf] * X.shape[0], axis = 0).reset_index(drop = True)
+        
+        if not scalingList is None:
+            quantilesDf_duplicated = (quantilesDf_duplicated.T * np.array(scalingList)).T
+        
+        return quantilesDf_duplicated
     
