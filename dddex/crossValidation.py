@@ -188,8 +188,6 @@ def getFoldScore(estimator, parameterGrid, cvFold, probs, X, y):
     SAA_fold = SampleAverageApproximation()
     SAA_fold.fit(y = yTrainFold)
 
-    # By setting 'X = None', the SAA results are only computed for a single observation (they are independent of X anyway).
-    # In order to receive the final dataframe of SAA results, we simply duplicate this single row as many times as needed.
     quantilesDfSAA = SAA_fold.predict(X = XTestFold, probs = probs)
     
     costsDictSAA = {prob: getPinballLoss(decisions = quantilesDfSAA.loc[:, prob],
@@ -483,8 +481,6 @@ def getFoldScoreLSx(estimatorLSx, parameterGridLSx, parameterGridEstimator, cvFo
     SAA_fold = SampleAverageApproximation()
     SAA_fold.fit(y = yTrainFold)
 
-    # By setting 'X = None', the SAA results are only computed for a single observation (they are independent of X anyway).
-    # In order to receive the final dataframe of SAA results, we simply duplicate this single row as many times as needed.
     quantilesDfSAA = SAA_fold.predict(X = XTestFold, probs = probs)
     
     costsDictSAA = {prob: getPinballLoss(decisions = quantilesDfSAA.loc[:, prob],
@@ -685,8 +681,6 @@ def getFoldScore_wasserstein(estimator, parameterGrid, cvFold, p, X, y):
     SAA_fold = SampleAverageApproximation()
     SAA_fold.fit(y = yTrainFold)
 
-    # By setting 'X = None', the SAA density is only computed for a single observation (the density is independent of X anyway)
-    # and simply duplicated as many times as needed.
     densitiesSAA = SAA_fold.getWeights(X = XTestFold, outputType = 'onlyPositiveWeightsValues')
     
     wassersteinDistSAA = getWassersteinDistances(densities = densitiesSAA,
@@ -910,8 +904,6 @@ def getFoldScoreLSx_wasserstein(estimatorLSx, parameterGridLSx, parameterGridEst
     SAA_fold = SampleAverageApproximation()
     SAA_fold.fit(y = yTrainFold)
 
-    # By setting 'X = None', the SAA density is only computed for a single observation (the density is independent of X anyway)
-    # and simply duplicated as many times as needed.
     densitiesSAA = SAA_fold.getWeights(X = XTestFold, outputType = 'onlyPositiveWeightsValues')
     
     wassersteinDistSAA = getWassersteinDistances(densities = densitiesSAA,
