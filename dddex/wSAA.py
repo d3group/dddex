@@ -32,13 +32,7 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
         
         self.yTrain = y
         
-        n_jobs = copy.deepcopy(self.get_params()['n_jobs'])
-        
-        self.set_params(n_jobs = 1)
-        
         self.leafIndicesTrain = self.apply(X)
-        
-        self.set_params(n_jobs = n_jobs)
     
     #---
     
@@ -56,15 +50,7 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
         
         #---
         
-        n_jobs = copy.deepcopy(self.get_params()['n_jobs'])
-        
-        self.set_params(n_jobs = 1)
-        
         leafIndicesDf = self.apply(X)
-        
-        self.set_params(n_jobs = n_jobs)
-        
-        #---
         
         weightsDataList = list()
 
