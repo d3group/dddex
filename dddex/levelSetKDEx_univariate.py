@@ -12,7 +12,6 @@ import itertools
 from collections import defaultdict, Counter, deque
 import warnings
 import copy
-import psutil
 
 from scipy import sparse
 from sklearn.neighbors import NearestNeighbors
@@ -824,10 +823,6 @@ def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being gro
         
         removeCounter = 0
         addCounter = 0
-        
-        if i % 10000 == 0:
-            process = psutil.Process(os.getpid())
-            print(f"Inside Loop {i}: Memory used by Jupyter notebook: {process.memory_info().rss / 2**20:.2f} MB")
             
         predCurrent = yPredUnique[i]
         
@@ -978,9 +973,6 @@ def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being gro
         neighborsAdded.append(addCounter)
         
     #---
-    
-    process = psutil.Process(os.getpid())
-    print(f"After Loop: Memory used by Jupyter notebook: {process.memory_info().rss / 2**20:.2f} MB")
  
     return neighborsPerPred, np.array(neighborsRemoved), np.array(neighborsAdded)
 
@@ -1187,9 +1179,6 @@ def getKernelValues(yPred,
             kernelValuesList.append(kernelValuesUnique)
     
     #---
-    
-    process = psutil.Process(os.getpid())
-    print(f"After Kernel Values: Memory used by Jupyter notebook: {process.memory_info().rss / 2**20:.2f} MB")
     
     if efficientRAM:
         return weightsDataList
