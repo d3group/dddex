@@ -27,21 +27,12 @@ class BaseLSx:
     
     def __init__(self, 
                  estimator, # Model with a `fit` and `predict` method (implementing the scikit-learn estimator interface).
-                 binSize: int=None, # Number of training samples considered for creating weights.
-                 # Determines behaviour of method `getWeights`. If False, all weights receive the same  
-                 # value. If True, the distance of the point forecasts is taking into account.
-                 weightsByDistance: bool=False,  
                  ):
         
         if not (hasattr(estimator, 'predict') and callable(estimator.predict)):
             raise ValueError("'estimator' has to have a 'predict'-method!")
             
-        if not (isinstance(binSize, (int, np.integer)) or binSize is None):
-            raise ValueError("'binSize' has to be an integer!")
-            
         self.estimator = copy.deepcopy(estimator)
-        self.binSize = binSize
-        self.weightsByDistance = weightsByDistance      
         
     #---
     

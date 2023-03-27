@@ -44,15 +44,21 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
                  binSize: int=None, # Size of the bins created while running fit.
                  # Determines behaviour of method `getWeights`. If False, all weights receive the same  
                  # value. If True, the distance of the point forecasts is taking into account.
-                 equalBins: bool = False,
-                 weightsByDistance: bool=False, 
+                 equalBins: bool=False,
                  ):
         
-        super(BaseEstimator, self).__init__(estimator = estimator,
-                                            binSize = binSize,
-                                            weightsByDistance = weightsByDistance)
+        super(BaseEstimator, self).__init__(estimator = estimator)
+        
+        # Check if binSize is int
+        if not isinstance(binSize, int):
+            raise ValueError("'binSize' must be an integer!")
+        
+        # Check if equalBins is bool
+        if not isinstance(equalBins, bool):
+            raise ValueError("'equalBins' must be a boolean!")
         
         self.equalBins = equalBins
+        
         self.yTrain = None
         self.yPredTrain = None
         self.indicesPerBin = None
