@@ -41,7 +41,7 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
     
     def __init__(self, 
                  estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
-                 binSize: int=None, # Size of the bins created while running fit.
+                 binSize: int=100, # Size of the bins created while running fit.
                  # Determines behaviour of method `getWeights`. If False, all weights receive the same  
                  # value. If True, the distance of the point forecasts is taking into account.
                  weightsByDistance: bool=False, 
@@ -50,9 +50,8 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
         super(BaseEstimator, self).__init__(estimator = estimator)
 
         # Check if binSize is integer
-        if binSize is not None:
-            if not isinstance(binSize, int):
-                raise ValueError("'binSize' must be an integer!")
+        if not isinstance(binSize, (int, np.int32, np.int64)):
+            raise ValueError("'binSize' must be an integer!")
 
         # Check if weightsByDistance is bool
         if not isinstance(weightsByDistance, bool):
@@ -81,8 +80,8 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
         """
         
         # Checks
-        if self.binSize is None:
-            raise ValueError("'binSize' must be specified to fit the LSx estimator!")
+        if not isinstance(self.binSize, (int, np.int32, np.int64)):
+            raise ValueError("'binSize' must be an integer!")
             
         if self.binSize > y.shape[0]:
             raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
@@ -450,7 +449,7 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
     
     def __init__(self, 
                  estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
-                 binSize: int=None, # Size of the bins created while running fit.
+                 binSize: int=100, # Size of the bins created while running fit.
                  # Determines behaviour of method `getWeights`. If False, all weights receive the same  
                  # value. If True, the distance of the point forecasts is taking into account.
                  weightsByDistance: bool=False, 
@@ -459,9 +458,8 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
         super(BaseEstimator, self).__init__(estimator = estimator)
 
         # Check if binSize is integer
-        if binSize is not None:
-            if not isinstance(binSize, int):
-                raise ValueError("'binSize' must be an integer!")
+        if not isinstance(binSize, (int, np.int32, np.int64)):
+            raise ValueError("'binSize' must be an integer!")
 
         # Check if weightsByDistance is bool
         if not isinstance(weightsByDistance, bool):
@@ -487,8 +485,8 @@ class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
         """
         
         # Checks
-        if self.binSize is None:
-            raise ValueError("'binSize' must be specified to fit the LSx estimator!")
+        if not isinstance(self.binSize, (int, np.int32, np.int64)):
+            raise ValueError("'binSize' must be an integer!")
             
         if self.binSize > y.shape[0]:
             raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
@@ -638,7 +636,7 @@ class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
     
     def __init__(self, 
                  estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
-                 binSize: int=None, # Size of the bins created while running fit.
+                 binSize: int=100, # Size of the bins created while running fit.
                  # Setting 'efficientRAM = TRUE' is only necessary when there are roughly umore than 200k training observations to avoid
                  # an overusage of RAM. This setting causes the run-time of the algorithm of the weights computation to linearly depend on 
                  # 'binSize'. Because of that the algorithm becomes quite slow for 'binSize' > 10k'.
@@ -648,9 +646,8 @@ class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
         super(BaseEstimator, self).__init__(estimator = estimator)
 
         # Check if binSize is integer
-        if binSize is not None:
-            if not isinstance(binSize, int):
-                raise ValueError("'binSize' must be an integer!")
+        if not isinstance(binSize, (int, np.int32, np.int64)):
+            raise ValueError("'binSize' must be an integer!")
 
         # Check if efficient RAM is boolean
         if not isinstance(efficientRAM, bool):
@@ -676,8 +673,8 @@ class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
         """
         
         # Checks
-        if self.binSize is None:
-            raise ValueError("'binSize' must be specified to fit the LSx estimator!")
+        if not isinstance(self.binSize, (int, np.int32, np.int64)):
+            raise ValueError("'binSize' must be an integer!")
             
         if self.binSize > y.shape[0]:
             raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
@@ -1214,15 +1211,17 @@ class LevelSetKDEx_clustering(BaseWeightsBasedEstimator, BaseLSx):
     
     def __init__(self, 
                  estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
-                 nClusters: int=None, # Number of clusters to form as well as number of centroids to generate.
+                 nClusters: int=10, # Number of clusters to form as well as number of centroids to generate.
                  ):
         
         super(BaseEstimator, self).__init__(estimator = estimator)
 
-        # Check if nClusters is integer
-        if nClusters is not None:
-            if not isinstance(nClusters, int):
-                raise ValueError("'nClusters' must be an integer!")
+        # nClusters must either be of type int, np.int64 or np.int32
+        if isinstance(nClusters, (np.int32, np.int64)):
+            nClusters = int(nClusters)
+        
+        elif not isinstance(nClusters, (int, np.int32, np.int64)):
+            raise ValueError("'nClusters' must be an integer!")
                 
         self.nClusters = nClusters
 
@@ -1250,10 +1249,13 @@ class LevelSetKDEx_clustering(BaseWeightsBasedEstimator, BaseLSx):
         if self.nClusters is None:
             raise ValueError("'nClusters' must be specified to fit the LSx estimator!")
         
-        # Check if nClusters is integer
-        if not isinstance(self.nClusters, int):
+        # nClusters must either be of type int, np.int64 or np.int32
+        if isinstance(self.nClusters, (np.int32, np.int64)):
+            self.nClusters = int(self.nClusters)
+        
+        elif not isinstance(self.nClusters, (int, np.int32, np.int64)):
             raise ValueError("'nClusters' must be an integer!")
-
+        
         # Check if nClusters is positive
         if self.nClusters <= 0:
             raise ValueError("'nClusters' must be positive!")
@@ -1280,6 +1282,7 @@ class LevelSetKDEx_clustering(BaseWeightsBasedEstimator, BaseLSx):
                 yPred = self.estimator.predict(X)
         
         #---
+        
         # Reshape yPred to 2D array with shape (nSamples, 1) and convert to float32.
         yPredMod = yPred.reshape(-1, 1).astype(np.float32)
         
@@ -1364,15 +1367,17 @@ class LevelSetKDEx_clustering2(BaseWeightsBasedEstimator, BaseLSx):
     
     def __init__(self, 
                  estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
-                 nClusters: int=None, # Number of clusters to form as well as number of centroids to generate.
+                 nClusters: int=10, # Number of clusters to form as well as number of centroids to generate.
                  ):
         
         super(BaseEstimator, self).__init__(estimator = estimator)
 
-        # Check if nClusters is integer
-        if nClusters is not None:
-            if not isinstance(nClusters, int):
-                raise ValueError("'nClusters' must be an integer!")
+        # nClusters must either be of type int, np.int64 or np.int32
+        if isinstance(nClusters, (np.int32, np.int64)):
+            nClusters = int(nClusters)
+        
+        elif not isinstance(nClusters, (int, np.int32, np.int64)):
+            raise ValueError("'nClusters' must be an integer!")
                 
         self.nClusters = nClusters
 
@@ -1400,8 +1405,11 @@ class LevelSetKDEx_clustering2(BaseWeightsBasedEstimator, BaseLSx):
         if self.nClusters is None:
             raise ValueError("'nClusters' must be specified to fit the LSx estimator!")
         
-        # Check if nClusters is integer
-        if not isinstance(self.nClusters, int):
+        # nClusters must either be of type int, np.int64 or np.int32
+        if isinstance(self.nClusters, (np.int32, np.int64)):
+            self.nClusters = int(self.nClusters)
+        
+        elif not isinstance(self.nClusters, (int, np.int32, np.int64)):
             raise ValueError("'nClusters' must be an integer!")
 
         # Check if nClusters is positive
@@ -1432,7 +1440,7 @@ class LevelSetKDEx_clustering2(BaseWeightsBasedEstimator, BaseLSx):
         #---
 
         # Cluster yPred into nClusters many clusters
-        kmeans = KMeans(n_clusters = self.nClusters, random_state = 0).fit(yPred.reshape(-1, 1))
+        kmeans = KMeans(n_clusters = self.nClusters, random_state = 0, n_init = 10).fit(yPred.reshape(-1, 1))
 
         # Get the cluster labels for each sample in yPred as a dict with keys being the cluster labels
         # and values being the indices of the samples in yPred that belong to that cluster.
