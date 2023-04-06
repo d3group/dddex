@@ -13,6 +13,7 @@ import copy
 from sklearn.ensemble import RandomForestRegressor
 from lightgbm import LGBMRegressor
 from sklearn.base import MetaEstimatorMixin
+from lightgbm.sklearn import LGBMModel
 from .baseClasses import BaseWeightsBasedEstimator
 from .utils import restructureWeightsDataList
 
@@ -184,9 +185,9 @@ class RandomForestWSAA_LGBM(LGBMRegressor, BaseWeightsBasedEstimator):
         
         __doc__ = BaseWeightsBasedEstimator.predict.__doc__
         
-        return super(MetaEstimatorMixin, self).predict(X = X,
-                                                       probs = probs, 
-                                                       scalingList = scalingList)
+        return super(LGBMModel, self).predict(X = X,
+                                             probs = probs, 
+                                             scalingList = scalingList)
     
     #---
     
