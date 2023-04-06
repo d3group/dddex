@@ -11,12 +11,13 @@ import numpy as np
 import copy
 
 from sklearn.ensemble import RandomForestRegressor
+from lightgbm import LGBMRegressor
 from sklearn.base import MetaEstimatorMixin
 from .baseClasses import BaseWeightsBasedEstimator
 from .utils import restructureWeightsDataList
 
 # %% auto 0
-__all__ = ['RandomForestWSAA', 'SampleAverageApproximation']
+__all__ = ['RandomForestWSAA', 'RandomForestWSAA_LGBM', 'SampleAverageApproximation']
 
 # %% ../nbs/03_wSAA.ipynb 7
 class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
@@ -109,6 +110,96 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
 
 
 # %% ../nbs/03_wSAA.ipynb 12
+class RandomForestWSAA_LGBM(LGBMRegressor, BaseWeightsBasedEstimator):
+    
+    def fit(self, 
+            X: np.ndarray, # Feature matrix
+            y: np.ndarray, # Target values
+            **kwargs):
+
+        super().fit(X = X, 
+                    y = y, 
+                    **kwargs)
+        
+        self.yTrain = y
+        
+        self.leafIndicesTrain = self.pointPredict(X, pred_leaf = True)
+    
+    #---
+    
+    def getWeights(self, 
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None, 
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        
+        __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
+        
+        #---
+        
+        leafIndicesDf = self.pointPredict(X, pred_leaf = True)
+        
+        weightsDataList = list()
+
+        for leafIndices in leafIndicesDf:
+            leafComparisonMatrix = (self.leafIndicesTrain == leafIndices) * 1
+            nObsInSameLeaf = np.sum(leafComparisonMatrix, axis = 0)
+
+            # It can happen that RF decides that the best strategy is to fit no tree at
+            # all and simply average all results (happens when min_child_sample is too high, for example).
+            # In this case 'leafComparisonMatrix' mustn't be averaged because there has been only a single tree.
+            if len(leafComparisonMatrix.shape) == 1:
+                weights = leafComparisonMatrix / nObsInSameLeaf
+            else:
+                weights = np.mean(leafComparisonMatrix / nObsInSameLeaf, axis = 1)
+
+            weightsPosIndex = np.where(weights > 0)[0]
+
+            weightsDataList.append((weights[weightsPosIndex], weightsPosIndex))
+
+        #---
+
+        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                     outputType = outputType, 
+                                                     y = self.yTrain, 
+                                                     scalingList = scalingList,
+                                                     equalWeights = False)
+
+        return weightsDataList
+    
+    #---
+    
+    def predict(self : BaseWeightsBasedEstimator, 
+                X: np.ndarray, # Feature matrix for which conditional quantiles are computed.
+                probs: list, # Probabilities for which quantiles are computed.
+                outputAsDf: bool=True, # Determines output. Either a dataframe with probs as columns or a dict with probs as keys.
+                # Optional. List with length X.shape[0]. Values are multiplied to the predictions
+                # of each sample to rescale values.
+                scalingList: list=None, 
+                ): 
+        
+        __doc__ = BaseWeightsBasedEstimator.predict.__doc__
+        
+        return super(MetaEstimatorMixin, self).predict(X = X,
+                                                       probs = probs, 
+                                                       scalingList = scalingList)
+    
+    #---
+    
+    def pointPredict(self,
+                     X: np.ndarray, # Feature Matrix
+                     **kwargs):
+        """Original `predict` method to generate point forecasts"""
+        
+        return super().predict(X = X,
+                               **kwargs)
+
+
+# %% ../nbs/03_wSAA.ipynb 14
 class SampleAverageApproximation(BaseWeightsBasedEstimator):
     """SAA is a featureless approach that assumes the density of the target variable is given
     by assigning equal probability to each historical observation of said target variable."""
