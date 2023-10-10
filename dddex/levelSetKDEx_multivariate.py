@@ -21,7 +21,7 @@ import copy
 import warnings
 
 from .baseClasses import BaseLSx, BaseWeightsBasedEstimator_multivariate
-from .wSAA import SampleAverageApproximation
+from .wSAA import SampleAverageApproximation, RandomForestWSAA, RandomForestWSAA_LGBM
 from .utils import restructureWeightsDataList_multivariate
 
 # %% auto 0
@@ -58,6 +58,7 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
             raise ValueError("'equalBins' must be a boolean!")
         
         self.equalBins = equalBins
+        self.binSize = binSize
         
         self.yTrain = None
         self.yPredTrain = None
@@ -114,20 +115,26 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
         
         #---
         
+        # Compute desired number of clusters dependend on binSize and number of samples
         nClusters = int(np.ceil(yPred.shape[0] / self.binSize))
+
+        # Modify yPred to be compatible with faiss
         yPredMod = yPred.astype(np.float32)
         
+        # Train kmeans model based on the faiss library
         kmeans = faiss.Kmeans(d = yPredMod.shape[1], k = nClusters)
         kmeans.train(yPredMod)
+
+        # Get cluster centers
         self.centers = kmeans.centroids
         
+        # Compute the cluster assignment for each sample
         if self.equalBins:
             clusterAssignments = self._getEqualSizedClusters(y = yPredMod)            
-            
         else:
             clusterAssignments = kmeans.assign(yPredMod)[1]
         
-        
+        # Based on the clusters and cluster assignments, we can now compute the indices belonging to each bin / cluster
         indicesPerBin = defaultdict(list)
         clusterSizes = defaultdict(int)
         for index, cluster in enumerate(clusterAssignments):
@@ -136,22 +143,78 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
         
         clusterSizes = pd.Series(clusterSizes)
         
-
-        clustersTooSmall = clusterSizes.index[np.where(clusterSizes < self.binSize / 2)[0]]
+        # Merge clusters that are too small (i.e. contain less than binSize / 2 samples)
+        threshold = self.binSize / 2
+        clustersTooSmall = clusterSizes.index[np.where(clusterSizes < threshold)[0]]
         
-        if len(clustersTooSmall) > 0:
-            centersToMerge = self.centers[clustersTooSmall]
-            centersRemaining = np.delete(self.centers, clustersTooSmall, axis = 0)
 
-            nearestCenterSearch = KDTree(centersRemaining)
-            clusterMergeDict = dict(zip(clustersTooSmall, nearestCenterSearch.query(centersToMerge)[1]))
+        # It is important to conduct the merging in an ordered manner, because clusters that are too small
+        # might be merged into other clusters that are too small as well. In this case, we need to update
+        # the clusterMergeDict accordingly.
+        clusterMergeDict = {}
+
+        for i, clusterTooSmall in enumerate(clustersTooSmall):
+
+            if clusterSizes[clusterTooSmall] >= threshold:
+                continue
+
+            # Remove the center of the cluster that is too small from the centers
+            remainingCenters = np.delete(self.centers, clustersTooSmall[0:i+1], axis = 0)
+
+            # Find the nearest center for the cluster that is too small among the remaining centers
+            nearestCenterSearch = KDTree(remainingCenters)
+
+            # Find the nearest center for the cluster that is too small
+            nearestCenter = remainingCenters[nearestCenterSearch.query(self.centers[clusterTooSmall])[1]]
             
-            for clusterToMerge, newCluster in clusterMergeDict.items():
-                indicesPerBin[newCluster].extend(indicesPerBin[clusterToMerge])
-                indicesPerBin[clusterToMerge] = None
+            # Find the index of the nearest center in the centers array
+            clusterToMerge = np.where(self.centers == nearestCenter)[0][0]
+
+            # Update the clusterToMergeDict accordingly
+            clusterMergeDict[clusterTooSmall] = clusterToMerge
+            clusterSizes[clusterToMerge] += clusterSizes[clusterTooSmall]
+            clusterSizes[clusterTooSmall] = 0
+
+            # Update the indicesPerBin dictionary accordingly
+            indicesPerBin[clusterToMerge].extend(indicesPerBin[clusterTooSmall])
+            indicesPerBin[clusterTooSmall] = None
+            
+
+
+
+        # if len(clustersTooSmall) > 0:
+        #     centersToMerge = self.centers[clustersTooSmall]
+
+        #     # Remove clusters that are too small from the centers
+        #     centersRemaining = np.delete(self.centers, clustersTooSmall, axis = 0)
+
+        #     # Find the nearest center for each cluster that is too small
+        #     nearestCenterSearch = KDTree(centersRemaining)
+
+        #     # Create a dictionary that maps the clusters that are too small to the nearest center
+        #     clusterMergeDict = dict(zip(clustersTooSmall, nearestCenterSearch.query(centersToMerge)[1]))
+            
+        #     # Check if any of the values in clusterMergeDict are already keys in clusterMergeDict
+        #     # If so, we need to update the values accordingly
+        #     # Example: clusterMergeDict = {0: 1, 1: 2, 2: 3}
+        #     # The loop will update as follows: {0: 1, 1: 2, 2: 3} --> {0: 2, 1: 3, 2: 3} --> {0: 3, 1: 3, 2: 3}
+        #     import ipdb
+        #     ipdb.set_trace()
+        #     while any([clusterToMerge in clusterMergeDict.keys() for clusterToMerge in clusterMergeDict.values()]):
+        #         for clusterToMerge, newCluster in clusterMergeDict.items():
+        #             if newCluster in clusterMergeDict.keys():
+        #                 clusterMergeDict[clusterToMerge] = clusterMergeDict[newCluster]
+                    
+        #         import ipdb
+        #         ipdb.set_trace()
+
+        #     # Update the indicesPerBin dictionary accordingly
+        #     for clusterToMerge, newCluster in clusterMergeDict.items():
+        #         indicesPerBin[newCluster].extend(indicesPerBin[clusterToMerge])
+        #         indicesPerBin[clusterToMerge] = None
         
-        else:
-            clusterMergeDict = None
+        # else:
+        #     clusterMergeDict = None
         
         indicesPerBin = {binIndex: np.array(indices) for binIndex, indices in indicesPerBin.items()}
         
@@ -163,6 +226,7 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
         self.kmeans = kmeans
         self.clusterMergeDict = clusterMergeDict
         self.fitted = True
+        self.clusterSizes = clusterSizes
         
     #---
     
@@ -211,19 +275,19 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
         else:
             binPerPred = self.kmeans.assign(yPred)[1]
             
-            binPerPredUnique = np.unique(binPerPred)
-            clustersToMerge = np.array(list(self.clusterMergeDict.keys()))
-            clustersToMod = clustersToMerge[[clusterToMerge in binPerPredUnique for clusterToMerge in clustersToMerge]]
+        binPerPredUnique = np.unique(binPerPred)
+        clustersToMerge = np.array(list(self.clusterMergeDict.keys()))
+        clustersToMod = clustersToMerge[[clusterToMerge in binPerPredUnique for clusterToMerge in clustersToMerge]]
 
-            if len(clustersToMod) > 0:
-                binPerPred = np.select([cluster == binPerPred for cluster in clustersToMod], 
-                                       [self.clusterMergeDict[cluster] for cluster in clustersToMod],
-                                       binPerPred)
+        if len(clustersToMod) > 0:
+            binPerPred = np.select([cluster == binPerPred for cluster in clustersToMod], 
+                                    [self.clusterMergeDict[cluster] for cluster in clustersToMod],
+                                    binPerPred)
         
         #---
         
         neighborsList = [self.indicesPerBin[binIndex] for binIndex in binPerPred]
-                
+        
         weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
         
         weightsDataList = restructureWeightsDataList_multivariate(weightsDataList = weightsDataList, 

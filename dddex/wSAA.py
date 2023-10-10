@@ -15,7 +15,7 @@ from lightgbm import LGBMRegressor
 from sklearn.base import MetaEstimatorMixin
 from lightgbm.sklearn import LGBMModel
 from .baseClasses import BaseWeightsBasedEstimator
-from .utils import restructureWeightsDataList
+from .utils import restructureWeightsDataList, restructureWeightsDataList_multivariate
 
 # %% auto 0
 __all__ = ['RandomForestWSAA', 'RandomForestWSAA_LGBM', 'SampleAverageApproximation']
@@ -74,11 +74,28 @@ class RandomForestWSAA(RandomForestRegressor, BaseWeightsBasedEstimator):
 
         #---
 
-        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                     outputType = outputType, 
-                                                     y = self.yTrain, 
-                                                     scalingList = scalingList,
-                                                     equalWeights = False)
+        # Check if self.yTrain is a 2D array with more than one column.
+        if len(self.yTrain.shape) > 1:
+            if self.yTrain.shape[1] > 1:
+
+                if not outputType in ['all', 'onlyPositiveWeights', 'summarized']:
+                    raise ValueError("outputType must be one of 'all', 'onlyPositiveWeights', 'summarized' for multivariate y.")
+                
+                weightsDataList = restructureWeightsDataList_multivariate(weightsDataList = weightsDataList, 
+                                                                        outputType = outputType, 
+                                                                        y = self.yTrain, 
+                                                                        scalingList = scalingList,
+                                                                        equalWeights = False) 
+            
+        else:
+            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                        outputType = outputType, 
+                                                        y = self.yTrain, 
+                                                        scalingList = scalingList,
+                                                        equalWeights = False)
+            
+        
+                
 
         return weightsDataList
     
