@@ -138,27 +138,40 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
         indicesPerBin = defaultdict(list)
         clusterSizes = defaultdict(int)
         for index, cluster in enumerate(clusterAssignments):
+            
             indicesPerBin[cluster].append(index)
             clusterSizes[cluster] += 1
+
+        keys = np.unique(np.array(list(indicesPerBin.keys())))
+        clusters = np.unique(clusterAssignments)
+        
+        # clustersZero = clusterSizes[np.where(clusterSizes == 0)[0]]
+        
+        
         
         clusterSizes = pd.Series(clusterSizes)
         
-        # Merge clusters that are too small (i.e. contain less than binSize / 2 samples)
+        # Merge clusters that are too small (i.e. contain less than binSize / 2 samples).
+        # clustersTooSmall is the array of all clusters that are too small.
         threshold = self.binSize / 2
-        clustersTooSmall = clusterSizes.index[np.where(clusterSizes < threshold)[0]]
+        clustersTooSmall = np.array(clusterSizes.index[np.where(clusterSizes < threshold)[0]])
         
-
         # It is important to conduct the merging in an ordered manner, because clusters that are too small
         # might be merged into other clusters that are too small as well. In this case, we need to update
         # the clusterMergeDict accordingly.
         clusterMergeDict = {}
+        # remainingCenters = copy.deepcopy(self.centers)
 
         for i, clusterTooSmall in enumerate(clustersTooSmall):
 
             if clusterSizes[clusterTooSmall] >= threshold:
                 continue
 
-            # Remove the center of the cluster that is too small from the centers
+            # Remove the value clusterTooSmall from remainingCenters
+            # remainingCenters = np.delete(remainingCenters, clusterTooSmall, axis = 0)
+
+            # Remove the center of the cluster that is too small from the centers.
+            # np.delete removes the indices from self.centers specified via clustersTooSmall[0:i+1]
             remainingCenters = np.delete(self.centers, clustersTooSmall[0:i+1], axis = 0)
 
             # Find the nearest center for the cluster that is too small among the remaining centers
@@ -168,7 +181,8 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
             nearestCenter = remainingCenters[nearestCenterSearch.query(self.centers[clusterTooSmall])[1]]
             
             # Find the index of the nearest center in the centers array
-            clusterToMerge = np.where(self.centers == nearestCenter)[0][0]
+            distances = [np.linalg.norm(nearestCenter - center) for center in self.centers]
+            clusterToMerge = np.argmin(distances)
 
             # Update the clusterToMergeDict accordingly
             clusterMergeDict[clusterTooSmall] = clusterToMerge
@@ -178,7 +192,8 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
             # Update the indicesPerBin dictionary accordingly
             indicesPerBin[clusterToMerge].extend(indicesPerBin[clusterTooSmall])
             indicesPerBin[clusterTooSmall] = None
-            
+
+        self.centers = remainingCenters
 
 
 
