@@ -125,8 +125,8 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
         kmeans = faiss.Kmeans(d = yPredMod.shape[1], k = nClusters)
         kmeans.train(yPredMod)
 
-        # Get cluster centers
-        self.centers = kmeans.centroids
+        # Get cluster centers created by faiss. IMPORTANT NOTE: not all clusters are used! We will handle that further below.
+        centersAll = kmeans.centroids
         
         # Compute the cluster assignment for each sample
         if self.equalBins:
@@ -137,24 +137,28 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
         # Based on the clusters and cluster assignments, we can now compute the indices belonging to each bin / cluster
         indicesPerBin = defaultdict(list)
         binSizes = defaultdict(int)
+
         for index, cluster in enumerate(clusterAssignments):
-            
             indicesPerBin[cluster].append(index)
             binSizes[cluster] += 1
 
         #---
 
-        # Sort clustersSizes by index
-        binSizes = pd.Series(binSizes).sort_index()
-        binSizes = np.array(binSizes)
+        clustersUsed = np.array(list(indicesPerBin.keys()))
+        clustersOrdered = np.sort(clustersUsed)
+
+        centers = centersAll[clustersOrdered]
+        indicesPerBin = [indicesPerBin[cluster] for cluster in clustersOrdered]
+        binSizes = np.array([binSizes[cluster] for cluster in clustersOrdered])
+
+        #---
 
         # Merge clusters that are too small (i.e. contain less than binSize / 2 samples).
         # clustersTooSmall is the array of all clusters that are too small.
         threshold = self.binSize / 2
         binsTooSmall = np.where(binSizes < threshold)[0]
-
+        
         if len(binsTooSmall) > 0:
-            centers = self.centers
 
             # remove all centers from centersOld that are part of clustersTooSmall
             centersNew = np.delete(centers, binsTooSmall, axis = 0)
@@ -168,7 +172,7 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
                 indicesPerBin[centersNew_oldIndices[clusterToMerge]].extend(indicesPerBin[binsTooSmall[i]])
 
             # Remove the indices given by clustersTooSmall from indicesPerBin by deleting the list entry
-            indicesPerBin = [np.array(indices) for binIndex, indices in indicesPerBin.items() if binIndex not in binsTooSmall]
+            indicesPerBin = [np.array(indices) for binIndex, indices in enumerate(indicesPerBin) if binIndex not in binsTooSmall]
             binSizes = [len(indices) for indices in indicesPerBin]
             binSizes = pd.Series(binSizes)
 
@@ -177,12 +181,12 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
             self.kmeans = KDTreeNew
         
         else:
+            self.centers = centers
             self.binSizes = pd.Series(binSizes)
-            kmeans = KDTree(self.centers)
-            self.kmeans = kmeans
+            self.kmeans = KDTree(self.centers)
 
             # Transform the indices given by indicesPerBin into numpy arrays
-            indicesPerBin = {binIndex: np.array(indices) for binIndex, indices in indicesPerBin.items()}
+            indicesPerBin = [np.array(indices) for indices in indicesPerBin]
             
         #---
         
