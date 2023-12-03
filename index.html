@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.450">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A package implementing non-parametric approaches to compute conditional density estimators">
+
+<title>dddex - dddex: Data-Driven Density Estimation x</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="dddex - dddex: Data-Driven Density Estimation x">
+<meta property="og:description" content="A package implementing non-parametric approaches to compute conditional density estimators">
+<meta property="og:site-name" content="dddex">
+<meta name="twitter:title" content="dddex - dddex: Data-Driven Density Estimation x">
+<meta name="twitter:description" content="A package implementing non-parametric approaches to compute conditional density estimators">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">dddex</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools ms-auto">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+      <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./index.html">dddex: Data-Driven Density Estimation x</a></li></ol></nav>
+      <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+      </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">dddex: Data-Driven Density Estimation x</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./baseclasses.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Base Class</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./levelsetkdex_univariate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Level-Set Based Kernel Density Estimation</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./levelsetkdex_multivariate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Level-Set Based Kernel Density Estimation for multivariate Predictors</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./wsaa.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">wSAA</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./crossvalidation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Cross Validation Functions</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./utils.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Helper Functions</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./loaddata.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Load Datasets</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./99_unitTests.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Generate Neighborhoods</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#install" id="toc-install" class="nav-link active" data-scroll-target="#install">Install</a></li>
+  <li><a href="#what-is-dddex" id="toc-what-is-dddex" class="nav-link" data-scroll-target="#what-is-dddex">What is dddex?</a></li>
+  <li><a href="#how-to-use-levelsetkdex" id="toc-how-to-use-levelsetkdex" class="nav-link" data-scroll-target="#how-to-use-levelsetkdex">How to use: LevelSetKDEx</a></li>
+  <li><a href="#how-to-tune-binsize-parameter-of-levelsetkdex" id="toc-how-to-tune-binsize-parameter-of-levelsetkdex" class="nav-link" data-scroll-target="#how-to-tune-binsize-parameter-of-levelsetkdex">How to tune binSize parameter of LevelSetKDEx</a></li>
+  <li><a href="#benchmarks-random-forest-wsaa" id="toc-benchmarks-random-forest-wsaa" class="nav-link" data-scroll-target="#benchmarks-random-forest-wsaa">Benchmarks: Random Forest wSAA</a></li>
+  </ul>
+<div class="toc-actions"><div><i class="bi bi-github"></i></div><div class="action-links"><p><a href="https://github.com/kaiguender/dddex/issues/new" class="toc-action">Report an issue</a></p></div></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">dddex: Data-Driven Density Estimation x</h1>
+</div>
+
+<div>
+  <div class="description">
+    A package implementing non-parametric approaches to compute conditional density estimators
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<section id="install" class="level2">
+<h2 class="anchored" data-anchor-id="install">Install</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode sh code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install dddex</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="what-is-dddex" class="level2">
+<h2 class="anchored" data-anchor-id="what-is-dddex">What is dddex?</h2>
+<p>The package name <code>dddex</code> stands for <em>Data-Driven Density Estimaton x</em>. New approaches are being implemented for estimating conditional densities without any parametric assumption about the underlying distribution. All those approaches take an arbitrary point forecaster as input and turn them into a new object that outputs an estimation of the conditional density based on the point predictions of the original point forecaster. The <em>x</em> in the name emphasizes that the approaches can be applied to any point forecaster. In this package several approaches are being implementing via the following classes:</p>
+<ul>
+<li><a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a></li>
+<li><a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex_knn"><code>LevelSetKDEx_kNN</code></a></li>
+<li><a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex_nn"><code>LevelSetKDEx_NN</code></a></li>
+<li><a href="https://kaiguender.github.io/dddex/levelsetkdex_multivariate.html#levelsetkdex_multivariate"><code>LevelSetKDEx_multivariate</code></a></li>
+</ul>
+<p>In the following we are going to work exclusively with the class <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a> because the most important methods are all pretty much the same. All models can be run easily with only a few lines of code and are designed to be compatible with the well known <em>Scikit-Learn</em> framework.</p>
+</section>
+<section id="how-to-use-levelsetkdex" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-use-levelsetkdex">How to use: LevelSetKDEx</h2>
+<p>To ensure compatibility with Scikit-Learn, as usual the class <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a> implements a <code>fit</code> and <code>predict</code> method. As the purposes of both classes is to compute estimations of conditional densities, the <code>predict</code> method outputs p-quantiles rather than point forecasts.</p>
+<p>Our choice of the class-names is supposed to be indicative of the underlying models: The name <em>LevelSet</em> stems from the fact that both methods operate with the underlying assumption that the values of point forecasts generated by the same point forecaster can be interpreted as a similarity measure between samples. <em>KDE</em> is short for <em>Kernel Density Estimator</em> and the <em>x</em> yet again signals that the classes can be initialized with any point forecasting model.</p>
+<p>In the following, we demonstrate how to use the class <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a> to compute estimations of the conditional densities and quantiles for the <a href="https://opimwue.github.io/ddop/modules/auto_generated/ddop.datasets.load_yaz.html#ddop.datasets.load_yaz">Yaz Data Set</a>. As explained above, <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a> is always based on a point forecaster that is being specified by the user. In our example we use the well known <code>LightGBMRegressor</code> as the underlying point predictor.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dddex.levelSetKDEx_univariate <span class="im">import</span> LevelSetKDEx, LevelSetKDEx_kNN, LevelSetKDEx_NN</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dddex.levelSetKDEx_multivariate <span class="im">import</span> LevelSetKDEx_multivariate</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dddex.loadData <span class="im">import</span> loadDataYaz</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> lightgbm <span class="im">import</span> LGBMRegressor</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>dataYaz, XTrain, yTrain, XTest, yTest <span class="op">=</span> loadDataYaz(returnXY <span class="op">=</span> <span class="va">True</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>LGBM <span class="op">=</span> LGBMRegressor(n_jobs <span class="op">=</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>There are three parameters for <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a>:</p>
+<ul>
+<li><strong>estimator</strong>: A point forecasting model that must have a <code>predict</code> method.</li>
+<li><strong>binSize</strong>: The amount of training samples considered to compute the conditional densities (for more details, see <em>To be written</em>).</li>
+<li><strong>weightsByDistance</strong>: If <em>False</em>, all considered training samples are weighted equally. If <em>True</em>, training samples are weighted by the inverse of the distance of their respective point forecast to the point forecast of the test sample at hand.</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>LSKDEx <span class="op">=</span> LevelSetKDEx(estimator <span class="op">=</span> LGBM, </span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>                      binSize <span class="op">=</span> <span class="dv">100</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>                      weightsByDistance <span class="op">=</span> <span class="va">False</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>There is no need to run <code>fit</code> on the point forecasting model before initializing <em>LevelSetKDEx</em>, because the <code>fit</code> method of <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a> automatically checks whether the provided model has been fitted already or not and runs the respective <code>fit</code> method of the point forecaster if needed.</p>
+<p>It should be noted, that running <code>fit</code> for the <em>LevelSetKDEx</em> approaches takes exceptionally little time even for datasets with <span class="math inline">\(&gt;10^6\)</span> samples (provided, of course, that the underlying point forecasting model has been fitted before hand).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>LSKDEx.fit(X <span class="op">=</span> XTrain, y <span class="op">=</span> yTrain)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>In order to compute conditional densities for test samples now, we simply run the <code>getWeights</code> method.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>conditionalDensities <span class="op">=</span> LSKDEx.getWeights(X <span class="op">=</span> XTest,</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>                                         outputType <span class="op">=</span> <span class="st">'summarized'</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"probabilities: </span><span class="sc">{</span>conditionalDensities[<span class="dv">0</span>][<span class="dv">0</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"demand values: </span><span class="sc">{</span>conditionalDensities[<span class="dv">0</span>][<span class="dv">1</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>probabilities: [0.49 0.01 0.21 0.01 0.16 0.07 0.04 0.01]
+demand values: [0.         0.01075269 0.04       0.04878049 0.08       0.12
+ 0.16       0.2       ]</code></pre>
+</div>
+</div>
+<p>Here, <code>conditionalDensities</code> is a list whose elements correspond to the samples specified via <code>X</code>. Every element contains a tuple, whose first entry constitutes probabilities and the second entry corresponding demand values (side note: The demand values have been scaled to lie in <span class="math inline">\([0, 1]\)</span>). In the above example, we can for example see that our model estimates that for the first test sample the demand will be 0 with a probability of 49%.</p>
+<p>Like the input argument <em>outputType</em> of <code>getWeights</code> suggests, we can output the conditional density estimations in various different forms. All in all, there are currently 5 output types specifying how the output for each sample looks like:</p>
+<ul>
+<li><strong>all</strong>: An array with the same length as the number of training samples. Each entry represents the probability of each training sample.</li>
+<li><strong>onlyPositiveWeights</strong>: A tuple. The first element of the tuple represents the probabilities and the second one the indices of the corresponding training sample. Only probalities greater than zero are returned. Note: This is the most memory and computationally efficient output type.</li>
+<li><strong>summarized</strong>: A tuple. The first element of the tuple represents the probabilities and the second one the corresponding value of <code>yTrain</code>. The probabilities corresponding to identical values of <code>yTrain</code> are aggregated.</li>
+<li><strong>cumulativeDistribution</strong>: A tuple. The first element of the tuple represents the probabilities and the second one the corresponding value of <code>yTrain</code>.</li>
+<li><strong>cumulativeDistributionSummarized</strong>: A tuple. The first element of the tuple represents the probabilities and the second one the corresponding value of <code>yTrain</code>. The probabilities corresponding to identical values of <code>yTrain</code> are aggregated.</li>
+</ul>
+<p>For example, by setting <code>outputType = 'cumulativeDistributionSummarized'</code> we can compute an estimation of the conditional cumulative distribution function for each sample. Below, we can see that our model predicts the demand of the first sample to be lower or equal than 0.16 with a probability of 99%.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>cumulativeDistributions <span class="op">=</span> LSKDEx.getWeights(X <span class="op">=</span> XTest,</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>                                            outputType <span class="op">=</span> <span class="st">'cumulativeDistributionSummarized'</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"cumulated probabilities: </span><span class="sc">{</span>cumulativeDistributions[<span class="dv">0</span>][<span class="dv">0</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"demand values: </span><span class="sc">{</span>cumulativeDistributions[<span class="dv">0</span>][<span class="dv">1</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>cumulated probabilities: [0.49 0.5  0.71 0.72 0.88 0.95 0.99 1.  ]
+demand values: [0.         0.01075269 0.04       0.04878049 0.08       0.12
+ 0.16       0.2       ]</code></pre>
+</div>
+</div>
+<p>We can also compute estimations of quantiles using the <code>predict</code> method. The parameter <em>probs</em> specifies the quantiles we want to predict.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>predRes <span class="op">=</span> LSKDEx.predict(X <span class="op">=</span> XTest,</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>                         probs <span class="op">=</span> [<span class="fl">0.1</span>, <span class="fl">0.5</span>, <span class="fl">0.75</span>, <span class="fl">0.99</span>])</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(predRes.iloc[<span class="dv">0</span>:<span class="dv">6</span>, :].to_markdown())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>|    |       0.1 |       0.5 |   0.75 |   0.99 |
+|---:|----------:|----------:|-------:|-------:|
+|  0 | 0         | 0.0107527 |   0.08 |   0.16 |
+|  1 | 0         | 0.08      |   0.12 |   0.2  |
+|  2 | 0.04      | 0.0967742 |   0.12 |   0.24 |
+|  3 | 0.056338  | 0.12      |   0.16 |   0.28 |
+|  4 | 0.04      | 0.0967742 |   0.12 |   0.24 |
+|  5 | 0.0666667 | 0.16      |   0.2  |   0.32 |</code></pre>
+</div>
+</div>
+</section>
+<section id="how-to-tune-binsize-parameter-of-levelsetkdex" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-tune-binsize-parameter-of-levelsetkdex">How to tune binSize parameter of LevelSetKDEx</h2>
+<p><code>dddex</code> also comes with the class <code>QuantileCrossValidations</code> that allows to tune quantile predictors in an efficient manner. The class is designed in a very similar fashion to the cross-validation classes of Scikit-Learn. As such, at first <a href="https://kaiguender.github.io/dddex/crossvalidation.html#quantilecrossvalidation"><code>QuantileCrossValidation</code></a>is initialized with all the settings for the cross-validation.</p>
+<ul>
+<li><strong>estimator</strong>: A model that must have a <code>set_params</code>, <code>fit</code> and <code>predict</code> method. Additionally, the <code>predict</code> method must (!) have a function argument called <code>prob</code> that allows to specify which quantiles to predict.</li>
+<li><strong>cvFolds</strong>: An iterable yielding (train, test) splits as arrays of indices</li>
+<li><strong>parameterGrid</strong>: The candidate values of to evaluate. Must be a dict.</li>
+<li><strong>probs</strong>: The probabilities for which quantiles are computed and evaluated.</li>
+<li><strong>refitPerProb</strong>: If True, for ever probability a fitted copy of <em>estimator</em> with the best parameter Setting for the respective p-quantile is stored in the attribute <em>bestEstimator_perProb</em>.</li>
+<li><strong>n_jobs</strong>: How many cross-validation split results to compute in parallel.</li>
+</ul>
+<p>After specifying the settings, <code>fit</code> has to be called to compute the results of the cross validation. The performance of every parameter setting is being evaluated by computing the relative reduction of the pinball loss in comparison to the quantile estimations generated by <em>SAA</em> (Sample Average Approximation) for every quantile.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dddex.crossValidation <span class="im">import</span> groupedTimeSeriesSplit, QuantileCrossValidation</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>dataTrain <span class="op">=</span> dataYaz[dataYaz[<span class="st">'label'</span>] <span class="op">==</span> <span class="st">'train'</span>]</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>cvFolds <span class="op">=</span> groupedTimeSeriesSplit(data <span class="op">=</span> dataTrain, </span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>                                 kFolds <span class="op">=</span> <span class="dv">3</span>,</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>                                 testLength <span class="op">=</span> <span class="dv">28</span>,</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>                                 groupFeature <span class="op">=</span> <span class="st">'id'</span>,</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>                                 timeFeature <span class="op">=</span> <span class="st">'dayIndex'</span>)</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>LSKDEx <span class="op">=</span> LevelSetKDEx(estimator <span class="op">=</span> LGBM)</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>paramGrid <span class="op">=</span> {<span class="st">'binSize'</span>: [<span class="dv">20</span>, <span class="dv">100</span>, <span class="dv">400</span>, <span class="dv">1000</span>],</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>             <span class="st">'weightsByDistance'</span>: [<span class="va">True</span>, <span class="va">False</span>]}</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>CV <span class="op">=</span> QuantileCrossValidation(estimator <span class="op">=</span> LSKDEx,</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>                             parameterGrid <span class="op">=</span> paramGrid,</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>                             cvFolds <span class="op">=</span> cvFolds,</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>                             probs <span class="op">=</span> [<span class="fl">0.01</span>, <span class="fl">0.25</span>, <span class="fl">0.5</span>, <span class="fl">0.75</span>, <span class="fl">0.99</span>],</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>                             refitPerProb <span class="op">=</span> <span class="va">True</span>,</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>                             n_jobs <span class="op">=</span> <span class="dv">3</span>)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>CV.fit(X <span class="op">=</span> XTrain, y <span class="op">=</span> yTrain)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>The best value for <em>binSize</em> can either be computed for every quantile separately or for all quantiles at once by computing the average cost reduction over all quantiles.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Best binSize over all quantiles: </span><span class="sc">{</span>CV<span class="sc">.</span>bestParams<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>CV.bestParams_perProb</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Best binSize over all quantiles: {'binSize': 1000, 'weightsByDistance': False}</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<pre><code>{0.01: {'binSize': 1000, 'weightsByDistance': False},
+ 0.25: {'binSize': 20, 'weightsByDistance': False},
+ 0.5: {'binSize': 100, 'weightsByDistance': False},
+ 0.75: {'binSize': 100, 'weightsByDistance': False},
+ 0.99: {'binSize': 1000, 'weightsByDistance': False}}</code></pre>
+</div>
+</div>
+<p>The exact results are also stored as attributes. The easiest way to view the results is given via <code>cv_results</code>, which depicts the average results over all cross-validation folds:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(CV.cvResults.to_markdown())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>|               |    0.01 |     0.25 |      0.5 |     0.75 |    0.99 |
+|:--------------|--------:|---------:|---------:|---------:|--------:|
+| (20, True)    | 3.79553 | 0.946626 | 0.89631  | 0.974659 | 2.98365 |
+| (20, False)   | 3.23956 | 0.849528 | 0.808262 | 0.854069 | 2.46195 |
+| (100, True)   | 3.11384 | 0.92145  | 0.871266 | 0.922703 | 2.22249 |
+| (100, False)  | 1.65191 | 0.857026 | 0.803632 | 0.835323 | 1.81003 |
+| (400, True)   | 2.57563 | 0.908214 | 0.851471 | 0.900311 | 2.03445 |
+| (400, False)  | 1.64183 | 0.860281 | 0.812806 | 0.837641 | 1.57534 |
+| (1000, True)  | 2.34575 | 0.893628 | 0.843721 | 0.888143 | 1.82368 |
+| (1000, False) | 1.54641 | 0.869606 | 0.854369 | 0.88065  | 1.52644 |</code></pre>
+</div>
+</div>
+<p>The attentive reader will certainly notice that values greater than 1 imply that the respective model performed worse than SAA. This is, of course, simply due to the fact, that we didn’t tune the hyperparameters of the underlying <code>LGBMRegressor</code> point predictor and instead used the default parameter values. The <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a>classes are able to produce highly accurate density estimations, but are obviously not able to turn a terrible point predictor into a highly performant conditional density estimator. The performance of the underlying point predictor and the constructed <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a> model go hand in hand.</p>
+<p>We can also access the results for every fold separately via <code>cv_results_raw</code>, which is a list with one entry per fold:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>CV.cvResults_raw</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<pre><code>[                               0.01      0.25      0.50      0.75      0.99
+ binSize weightsByDistance                                                  
+ 20      True               3.730363  0.977152  0.949944  1.093261  4.590650
+         False              3.068598  0.854633  0.855041  0.953362  3.663885
+ 100     True               3.359961  0.945510  0.922778  1.027477  3.475501
+         False              1.626054  0.871327  0.833379  0.907911  2.591117
+ 400     True               2.663854  0.928036  0.907505  0.995238  3.149022
+         False              1.732673  0.860440  0.828015  0.890643  2.190292
+ 1000    True               2.463221  0.914308  0.897978  0.979345  2.753553
+         False              1.464534  0.873277  0.858563  0.891858  1.830334,
+                                0.01      0.25      0.50      0.75      0.99
+ binSize weightsByDistance                                                  
+ 20      True               4.725018  0.958236  0.891472  0.914408  2.253200
+         False              4.157297  0.841141  0.795929  0.830544  1.883320
+ 100     True               3.687090  0.933531  0.876655  0.875718  1.551640
+         False              1.752709  0.862970  0.812126  0.819613  1.416013
+ 400     True               3.061210  0.920190  0.851794  0.873496  1.464974
+         False              2.085622  0.887758  0.839370  0.859290  1.296445
+ 1000    True               2.784076  0.903801  0.840009  0.856845  1.381658
+         False              1.767468  0.869484  0.860893  0.876293  1.464460,
+                                0.01      0.25      0.50      0.75      0.99
+ binSize weightsByDistance                                                  
+ 20      True               2.931208  0.904490  0.847513  0.916307  2.107091
+         False              2.492787  0.852811  0.773815  0.778301  1.838642
+ 100     True               2.294471  0.885308  0.814365  0.864913  1.640339
+         False              1.576956  0.836781  0.765390  0.778446  1.422947
+ 400     True               2.001828  0.876417  0.795114  0.832198  1.489340
+         False              1.107203  0.832645  0.771034  0.762992  1.239275
+ 1000    True               1.789944  0.862776  0.793177  0.828237  1.335825
+         False              1.407221  0.866058  0.843651  0.873799  1.284521]</code></pre>
+</div>
+</div>
+<p>The models with the best <em>binSize</em> parameter are automatically computed while running <code>fit</code> and can be accessed via <code>bestEstimator</code>. If <code>refitPerProb = True</code>, then <code>bestEstimator</code> is a dictionary whose keys are the probabilities specified via the paramater <em>probs</em>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>LSKDEx_best99 <span class="op">=</span> CV.bestEstimator_perProb[<span class="fl">0.99</span>]</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>predRes <span class="op">=</span> LSKDEx_best99.predict(X <span class="op">=</span> XTest,</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>                                probs <span class="op">=</span> <span class="fl">0.99</span>)</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(predRes.iloc[<span class="dv">0</span>:<span class="dv">6</span>, ].to_markdown())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>|    |   0.99 |
+|---:|-------:|
+|  0 |   0.32 |
+|  1 |   0.32 |
+|  2 |   0.32 |
+|  3 |   0.32 |
+|  4 |   0.32 |
+|  5 |   0.32 |</code></pre>
+</div>
+</div>
+</section>
+<section id="benchmarks-random-forest-wsaa" class="level2">
+<h2 class="anchored" data-anchor-id="benchmarks-random-forest-wsaa">Benchmarks: Random Forest wSAA</h2>
+<p>The <code>dddex</code> package also contains useful non-parametric benchmark models to compare the performance of the <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a> models to other state of the art non-parametric models capable of generating conditional density estimations. In a <a href="https://ml-eval.github.io/assets/pdf/ICLR22_Workshop_ML_Eval_DDNV.pdf">meta analysis conducted by S. Butler et al.</a> the most performant model has been found to be <a href="https://pubsonline.informs.org/doi/10.1287/mnsc.2018.3253">weighted sample average approximation (wSAA)</a> based on <em>Random Forest</em>. This model has been implemented in a Scikit-Learn fashion as well.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dddex.wSAA <span class="im">import</span> RandomForestWSAA</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>RF <span class="op">=</span> RandomForestWSAA()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p><a href="https://kaiguender.github.io/dddex/wsaa.html#randomforestwsaa"><code>RandomForestWSAA</code></a> is a class derived from the original <code>RandomForestRegressor</code> class from Scikit-Learn, that has been extended to be able to generate conditional density estimations in the manner described by Bertsimas et al.&nbsp;in their paper <a href="https://pubsonline.informs.org/doi/10.1287/mnsc.2018.3253"><em>From Predictive to prescriptive analytics</em></a>. The <em>Random Forest</em> modell is being fitted in exactly the same way as the original <em>RandomForestRegressor</em>:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>RF.fit(X <span class="op">=</span> XTrain, y <span class="op">=</span> yTrain)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Identical to the <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex"><code>LevelSetKDEx</code></a> and <a href="https://kaiguender.github.io/dddex/levelsetkdex_univariate.html#levelsetkdex_knn"><code>LevelSetKDEx_kNN</code></a> classes, an identical method called <code>getWeights</code> and <code>predict</code>are implemented to compute conditional density estimations and quantiles. The output is the same as before.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>conditionalDensities <span class="op">=</span> RF.getWeights(X <span class="op">=</span> XTest,</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>                                     outputType <span class="op">=</span> <span class="st">'summarized'</span>)</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"probabilities: </span><span class="sc">{</span>conditionalDensities[<span class="dv">0</span>][<span class="dv">0</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"demand values: </span><span class="sc">{</span>conditionalDensities[<span class="dv">0</span>][<span class="dv">1</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>probabilities: [0.08334138 0.17368071 0.2987331  0.10053752 0.1893534  0.09121861
+ 0.04362338 0.0145119  0.005     ]
+demand values: [0.   0.04 0.08 0.12 0.16 0.2  0.24 0.28 0.32]</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>predRes <span class="op">=</span> RF.predict(X <span class="op">=</span> XTest,</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>                     probs <span class="op">=</span> [<span class="fl">0.01</span>, <span class="fl">0.5</span>, <span class="fl">0.99</span>])</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(predRes.iloc[<span class="dv">0</span>:<span class="dv">6</span>, :].to_markdown())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>|    |   0.01 |   0.5 |   0.99 |
+|---:|-------:|------:|-------:|
+|  0 |      0 |  0.08 |   0.28 |
+|  1 |      0 |  0.12 |   0.32 |
+|  2 |      0 |  0.12 |   0.32 |
+|  3 |      0 |  0.12 |   0.32 |
+|  4 |      0 |  0.12 |   0.32 |
+|  5 |      0 |  0.2  |   0.4  |</code></pre>
+</div>
+</div>
+<p>The original <code>predict</code> method of the <code>RandomForestRegressor</code> has been renamed to <code>pointPredict</code>:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>RF.pointPredict(X <span class="op">=</span> XTest)[<span class="dv">0</span>:<span class="dv">6</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<pre><code>array([0.1064    , 0.1184    , 0.1324    , 0.1324    , 0.1364    ,
+       0.18892683])</code></pre>
+</div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

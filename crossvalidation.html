@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.450">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Fill in a module description here">
+
+<title>dddex - Cross Validation Functions</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="dddex - Cross Validation Functions">
+<meta property="og:description" content="Fill in a module description here">
+<meta property="og:site-name" content="dddex">
+<meta name="twitter:title" content="dddex - Cross Validation Functions">
+<meta name="twitter:description" content="Fill in a module description here">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">dddex</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools ms-auto">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+      <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./crossvalidation.html">Cross Validation Functions</a></li></ol></nav>
+      <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+      </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">dddex: Data-Driven Density Estimation x</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./baseclasses.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Base Class</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./levelsetkdex_univariate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Level-Set Based Kernel Density Estimation</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./levelsetkdex_multivariate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Level-Set Based Kernel Density Estimation for multivariate Predictors</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./wsaa.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">wSAA</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./crossvalidation.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Cross Validation Functions</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./utils.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Helper Functions</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./loaddata.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Load Datasets</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./99_unitTests.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Generate Neighborhoods</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#cv---pinball-loss" id="toc-cv---pinball-loss" class="nav-link active" data-scroll-target="#cv---pinball-loss">CV - Pinball Loss</a>
+  <ul class="collapse">
+  <li><a href="#quantilecrossvalidation" id="toc-quantilecrossvalidation" class="nav-link" data-scroll-target="#quantilecrossvalidation">QuantileCrossValidation</a></li>
+  <li><a href="#quantilecrossvalidation.fit" id="toc-quantilecrossvalidation.fit" class="nav-link" data-scroll-target="#quantilecrossvalidation.fit">QuantileCrossValidation.fit</a></li>
+  <li><a href="#getfoldscore" id="toc-getfoldscore" class="nav-link" data-scroll-target="#getfoldscore">getFoldScore</a></li>
+  </ul></li>
+  <li><a href="#cv---combined---pinball-loss" id="toc-cv---combined---pinball-loss" class="nav-link" data-scroll-target="#cv---combined---pinball-loss">CV - Combined - Pinball Loss</a>
+  <ul class="collapse">
+  <li><a href="#quantilecrossvalidationlsx" id="toc-quantilecrossvalidationlsx" class="nav-link" data-scroll-target="#quantilecrossvalidationlsx">QuantileCrossValidationLSx</a></li>
+  <li><a href="#quantilecrossvalidationlsx.fit" id="toc-quantilecrossvalidationlsx.fit" class="nav-link" data-scroll-target="#quantilecrossvalidationlsx.fit">QuantileCrossValidationLSx.fit</a></li>
+  <li><a href="#getfoldscorelsx" id="toc-getfoldscorelsx" class="nav-link" data-scroll-target="#getfoldscorelsx">getFoldScoreLSx</a></li>
+  </ul></li>
+  <li><a href="#cv---wasserstein-distance" id="toc-cv---wasserstein-distance" class="nav-link" data-scroll-target="#cv---wasserstein-distance">CV - Wasserstein Distance</a>
+  <ul class="collapse">
+  <li><a href="#densitycrossvalidation" id="toc-densitycrossvalidation" class="nav-link" data-scroll-target="#densitycrossvalidation">DensityCrossValidation</a></li>
+  <li><a href="#densitycrossvalidation.fit" id="toc-densitycrossvalidation.fit" class="nav-link" data-scroll-target="#densitycrossvalidation.fit">DensityCrossValidation.fit</a></li>
+  <li><a href="#getfoldscore_wasserstein" id="toc-getfoldscore_wasserstein" class="nav-link" data-scroll-target="#getfoldscore_wasserstein">getFoldScore_wasserstein</a></li>
+  </ul></li>
+  <li><a href="#cv---combined---wasserstein-distance" id="toc-cv---combined---wasserstein-distance" class="nav-link" data-scroll-target="#cv---combined---wasserstein-distance">CV - Combined - Wasserstein Distance</a>
+  <ul class="collapse">
+  <li><a href="#densitycrossvalidationlsx" id="toc-densitycrossvalidationlsx" class="nav-link" data-scroll-target="#densitycrossvalidationlsx">DensityCrossValidationLSx</a></li>
+  <li><a href="#densitycrossvalidationlsx.fit" id="toc-densitycrossvalidationlsx.fit" class="nav-link" data-scroll-target="#densitycrossvalidationlsx.fit">DensityCrossValidationLSx.fit</a></li>
+  <li><a href="#getfoldscorelsx_wasserstein" id="toc-getfoldscorelsx_wasserstein" class="nav-link" data-scroll-target="#getfoldscorelsx_wasserstein">getFoldScoreLSx_wasserstein</a></li>
+  </ul></li>
+  <li><a href="#helper-functions" id="toc-helper-functions" class="nav-link" data-scroll-target="#helper-functions">Helper Functions</a>
+  <ul class="collapse">
+  <li><a href="#get-pinball-loss" id="toc-get-pinball-loss" class="nav-link" data-scroll-target="#get-pinball-loss">Get Pinball Loss</a></li>
+  <li><a href="#getpinballloss" id="toc-getpinballloss" class="nav-link" data-scroll-target="#getpinballloss">getPinballLoss</a></li>
+  <li><a href="#get-wasserstein-distances" id="toc-get-wasserstein-distances" class="nav-link" data-scroll-target="#get-wasserstein-distances">Get Wasserstein Distances</a></li>
+  <li><a href="#getwassersteindistances" id="toc-getwassersteindistances" class="nav-link" data-scroll-target="#getwassersteindistances">getWassersteinDistances</a></li>
+  <li><a href="#grouped-time-series-split" id="toc-grouped-time-series-split" class="nav-link" data-scroll-target="#grouped-time-series-split">Grouped Time Series Split</a></li>
+  <li><a href="#groupedtimeseriessplit" id="toc-groupedtimeseriessplit" class="nav-link" data-scroll-target="#groupedtimeseriessplit">groupedTimeSeriesSplit</a></li>
+  </ul></li>
+  <li><a href="#test-code" id="toc-test-code" class="nav-link" data-scroll-target="#test-code">Test Code</a></li>
+  </ul>
+<div class="toc-actions"><div><i class="bi bi-github"></i></div><div class="action-links"><p><a href="https://github.com/kaiguender/dddex/issues/new" class="toc-action">Report an issue</a></p></div></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Cross Validation Functions</h1>
+</div>
+
+<div>
+  <div class="description">
+    Fill in a module description here
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<section id="cv---pinball-loss" class="level2">
+<h2 class="anchored" data-anchor-id="cv---pinball-loss">CV - Pinball Loss</h2>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L28" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="quantilecrossvalidation" class="level3">
+<h3 class="anchored" data-anchor-id="quantilecrossvalidation">QuantileCrossValidation</h3>
+<blockquote class="blockquote">
+<pre><code> QuantileCrossValidation (estimator, cvFolds, parameterGrid:dict,
+                          randomSearch:bool=False, nIter:int=None,
+                          probs:list=[0.01, 0.02, 0.03, 0.04, 0.05, 0.06,
+                          0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14,
+                          0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21, 0.22,
+                          0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.3,
+                          0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.38,
+                          0.39, 0.4, 0.41, 0.42, 0.43, 0.44, 0.45, 0.46,
+                          0.47, 0.48, 0.49, 0.5, 0.51, 0.52, 0.53, 0.54,
+                          0.55, 0.56, 0.57, 0.58, 0.59, 0.6, 0.61, 0.62,
+                          0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7,
+                          0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78,
+                          0.79, 0.8, 0.81, 0.82, 0.83, 0.84, 0.85, 0.86,
+                          0.87, 0.88, 0.89, 0.9, 0.91, 0.92, 0.93, 0.94,
+                          0.95, 0.96, 0.97, 0.98, 0.99],
+                          refitPerProb:bool=False, n_jobs:int=None,
+                          random_state:int=None)</code></pre>
+</blockquote>
+<p>Class to efficiently tune the <code>binSize</code> parameter of all Level-Set based models.</p>
+<table class="table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>estimator</td>
+<td></td>
+<td></td>
+<td>An object with a <code>predict</code> method that must (!) have an argument called <code>probs</code><br>that specifies which quantiles to predict. Further, <code>estimator</code> needs<br>a <code>set_params</code> and <code>fit</code> method.</td>
+</tr>
+<tr class="even">
+<td>cvFolds</td>
+<td></td>
+<td></td>
+<td>An iterable yielding (train, test) splits as arrays of indices.</td>
+</tr>
+<tr class="odd">
+<td>parameterGrid</td>
+<td>dict</td>
+<td></td>
+<td>dict or list of dicts with parameters names (<code>str</code>) as keys and distributions<br>or lists of parameters to try. Distributions must provide a <code>rvs</code><br>method for sampling (such as those from scipy.stats.distributions).</td>
+</tr>
+<tr class="even">
+<td>randomSearch</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to use randomized search or grid search</td>
+</tr>
+<tr class="odd">
+<td>nIter</td>
+<td>int</td>
+<td>None</td>
+<td>Number of parameter settings that are sampled if <code>randomSearch == True</code>. <br>n_iter trades off runtime vs quality of the solution.</td>
+</tr>
+<tr class="even">
+<td>probs</td>
+<td>list</td>
+<td>[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.3, 0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.4, 0.41, 0.42, 0.43, 0.44, 0.45, 0.46, 0.47, 0.48, 0.49, 0.5, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.6, 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7, 0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8, 0.81, 0.82, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99]</td>
+<td>iterable of floats between 0 and 1. These determine the p-quantiles being predicted <br>to evaluate performance of each parameter setting.</td>
+</tr>
+<tr class="odd">
+<td>refitPerProb</td>
+<td>bool</td>
+<td>False</td>
+<td>If True, for each p-quantile a fitted LSF with best binSize to predict it is returned. <br>Otherwise only one LSF is returned that is best over all probs.</td>
+</tr>
+<tr class="even">
+<td>n_jobs</td>
+<td>int</td>
+<td>None</td>
+<td>Number of jobs to run in parallel.</td>
+</tr>
+<tr class="odd">
+<td>random_state</td>
+<td>int</td>
+<td>None</td>
+<td>Pseudo random number generator state used for random uniform sampling of parameter candidate values.<br>Pass an int for reproducible output across multiple function calls.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L99" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="quantilecrossvalidation.fit" class="level3">
+<h3 class="anchored" data-anchor-id="quantilecrossvalidation.fit">QuantileCrossValidation.fit</h3>
+<blockquote class="blockquote">
+<pre><code> QuantileCrossValidation.fit (X:numpy.ndarray, y:numpy.ndarray)</code></pre>
+</blockquote>
+<table class="table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 38%">
+<col style="width: 52%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>X</td>
+<td>np.ndarray</td>
+<td>Feature matrix (has to work with the folds specified via <code>cvFolds</code>)</td>
+</tr>
+<tr class="even">
+<td>y</td>
+<td>np.ndarray</td>
+<td>Target values (has to work with the folds specified via <code>cvFolds</code>)</td>
+</tr>
+</tbody>
+</table>
+<section id="scores-for-single-fold" class="level4">
+<h4 class="anchored" data-anchor-id="scores-for-single-fold">Scores for Single Fold</h4>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L175" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+</section>
+<section id="getfoldscore" class="level3">
+<h3 class="anchored" data-anchor-id="getfoldscore">getFoldScore</h3>
+<blockquote class="blockquote">
+<pre><code> getFoldScore (estimator, parameterGrid, cvFold, probs, X, y)</code></pre>
+</blockquote>
+</section>
+</section>
+<section id="cv---combined---pinball-loss" class="level2">
+<h2 class="anchored" data-anchor-id="cv---combined---pinball-loss">CV - Combined - Pinball Loss</h2>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L246" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="quantilecrossvalidationlsx" class="level3">
+<h3 class="anchored" data-anchor-id="quantilecrossvalidationlsx">QuantileCrossValidationLSx</h3>
+<blockquote class="blockquote">
+<pre><code> QuantileCrossValidationLSx (estimatorLSx, cvFolds, parameterGridLSx:dict,
+                             parameterGridEstimator:dict,
+                             randomSearchLSx:bool=False,
+                             randomSearchEstimator:bool=False,
+                             nIterLSx:int=None, nIterEstimator:int=None,
+                             probs:list=[0.01, 0.02, 0.03, 0.04, 0.05,
+                             0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12,
+                             0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19,
+                             0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26,
+                             0.27, 0.28, 0.29, 0.3, 0.31, 0.32, 0.33,
+                             0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.4,
+                             0.41, 0.42, 0.43, 0.44, 0.45, 0.46, 0.47,
+                             0.48, 0.49, 0.5, 0.51, 0.52, 0.53, 0.54,
+                             0.55, 0.56, 0.57, 0.58, 0.59, 0.6, 0.61,
+                             0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68,
+                             0.69, 0.7, 0.71, 0.72, 0.73, 0.74, 0.75,
+                             0.76, 0.77, 0.78, 0.79, 0.8, 0.81, 0.82,
+                             0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89,
+                             0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96,
+                             0.97, 0.98, 0.99], refitPerProb:bool=False,
+                             n_jobs:int=None, random_state:int=None)</code></pre>
+</blockquote>
+<p>Class to efficiently tune the <code>binSize</code> parameter of all Level-Set based models.</p>
+<table class="table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>estimatorLSx</td>
+<td></td>
+<td></td>
+<td>A Level-Set based model.</td>
+</tr>
+<tr class="even">
+<td>cvFolds</td>
+<td></td>
+<td></td>
+<td>An iterable yielding (train, test) splits as arrays of indices.</td>
+</tr>
+<tr class="odd">
+<td>parameterGridLSx</td>
+<td>dict</td>
+<td></td>
+<td>dict or list of dicts with LSx parameters names (<code>str</code>) as keys and distributions<br>or lists of parameters to try. Distributions must provide a <code>rvs</code><br>method for sampling (such as those from scipy.stats.distributions).</td>
+</tr>
+<tr class="even">
+<td>parameterGridEstimator</td>
+<td>dict</td>
+<td></td>
+<td>dict or list of dicts with parameters names (<code>str</code>) of the point predictor as keys<br>and distributions or lists of parameters to try. Distributions must provide a <code>rvs</code><br>method for sampling (such as those from scipy.stats.distributions).</td>
+</tr>
+<tr class="odd">
+<td>randomSearchLSx</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to use randomized search or grid search for the LSx parameters.</td>
+</tr>
+<tr class="even">
+<td>randomSearchEstimator</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to use randomized search or grid search for the point predictor parameters.</td>
+</tr>
+<tr class="odd">
+<td>nIterLSx</td>
+<td>int</td>
+<td>None</td>
+<td>Number of parameter settings of the LSx model that are sampled if <code>randomSearchLSx == True</code>. <br>LSx parameter settings are usually relatively cheap to evaluate, so all sampled LSx paramater settings<br>are evaluated for each point predictor parameter setting.</td>
+</tr>
+<tr class="even">
+<td>nIterEstimator</td>
+<td>int</td>
+<td>None</td>
+<td>Number of parameter settings of the underlying point predictor that are sampled if <br><code>randomSearchEstimator == True</code>. nIterEstimator trades off runtime vs quality of the solution.</td>
+</tr>
+<tr class="odd">
+<td>probs</td>
+<td>list</td>
+<td>[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.3, 0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.4, 0.41, 0.42, 0.43, 0.44, 0.45, 0.46, 0.47, 0.48, 0.49, 0.5, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.6, 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7, 0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8, 0.81, 0.82, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99]</td>
+<td>iterable of floats between 0 and 1. These determine the p-quantiles being predicted <br>to evaluate performance of each parameter setting.</td>
+</tr>
+<tr class="even">
+<td>refitPerProb</td>
+<td>bool</td>
+<td>False</td>
+<td>If True, for each p-quantile a fitted LSF with best binSize to predict it is returned. <br>Otherwise only one LSF is returned that is best over all probs.</td>
+</tr>
+<tr class="odd">
+<td>n_jobs</td>
+<td>int</td>
+<td>None</td>
+<td>number of folds being computed in parallel.</td>
+</tr>
+<tr class="even">
+<td>random_state</td>
+<td>int</td>
+<td>None</td>
+<td>Pseudo random number generator state used for random uniform sampling of parameter candidate values.<br>Pass an int for reproducible output across multiple function calls.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L351" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="quantilecrossvalidationlsx.fit" class="level3">
+<h3 class="anchored" data-anchor-id="quantilecrossvalidationlsx.fit">QuantileCrossValidationLSx.fit</h3>
+<blockquote class="blockquote">
+<pre><code> QuantileCrossValidationLSx.fit (X:numpy.ndarray, y:numpy.ndarray)</code></pre>
+</blockquote>
+<table class="table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 38%">
+<col style="width: 52%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>X</td>
+<td>np.ndarray</td>
+<td>Feature matrix (has to work with the folds specified via <code>cvFolds</code>)</td>
+</tr>
+<tr class="even">
+<td>y</td>
+<td>np.ndarray</td>
+<td>Target values (has to work with the folds specified via <code>cvFolds</code>)</td>
+</tr>
+</tbody>
+</table>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># show_doc(CrossValidationLSx_combined.fit)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="scores-for-single-fold-1" class="level4">
+<h4 class="anchored" data-anchor-id="scores-for-single-fold-1">Scores for Single Fold</h4>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L468" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+</section>
+<section id="getfoldscorelsx" class="level3">
+<h3 class="anchored" data-anchor-id="getfoldscorelsx">getFoldScoreLSx</h3>
+<blockquote class="blockquote">
+<pre><code> getFoldScoreLSx (estimatorLSx, parameterGridLSx, parameterGridEstimator,
+                  cvFold, probs, X, y)</code></pre>
+</blockquote>
+</section>
+</section>
+<section id="cv---wasserstein-distance" class="level2">
+<h2 class="anchored" data-anchor-id="cv---wasserstein-distance">CV - Wasserstein Distance</h2>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L560" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="densitycrossvalidation" class="level3">
+<h3 class="anchored" data-anchor-id="densitycrossvalidation">DensityCrossValidation</h3>
+<blockquote class="blockquote">
+<pre><code> DensityCrossValidation (estimator, cvFolds, parameterGrid:dict,
+                         randomSearch:bool=False, nIter:int=None, p:int=1,
+                         n_jobs:int=None, random_state:int=None)</code></pre>
+</blockquote>
+<p>Class to efficiently tune the <code>binSize</code> parameter of all Level-Set based models.</p>
+<table class="table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>estimator</td>
+<td></td>
+<td></td>
+<td>An object with a <code>predict</code> method that must (!) have an argument called <code>probs</code><br>that specifies which quantiles to predict. Further, <code>estimator</code> needs<br>a <code>set_params</code> and <code>fit</code> method.</td>
+</tr>
+<tr class="even">
+<td>cvFolds</td>
+<td></td>
+<td></td>
+<td>An iterable yielding (train, test) splits as arrays of indices.</td>
+</tr>
+<tr class="odd">
+<td>parameterGrid</td>
+<td>dict</td>
+<td></td>
+<td>dict or list of dicts with parameters names (<code>str</code>) as keys and distributions<br>or lists of parameters to try. Distributions must provide a <code>rvs</code><br>method for sampling (such as those from scipy.stats.distributions).</td>
+</tr>
+<tr class="even">
+<td>randomSearch</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to use randomized search or grid search</td>
+</tr>
+<tr class="odd">
+<td>nIter</td>
+<td>int</td>
+<td>None</td>
+<td>Number of parameter settings that are sampled if <code>randomSearch == True</code>. <br>n_iter trades off runtime vs quality of the solution.</td>
+</tr>
+<tr class="even">
+<td>p</td>
+<td>int</td>
+<td>1</td>
+<td>The order of the wasserstein distance to evaluate each hyperparameter settings.</td>
+</tr>
+<tr class="odd">
+<td>n_jobs</td>
+<td>int</td>
+<td>None</td>
+<td>Number of jobs to run in parallel.</td>
+</tr>
+<tr class="even">
+<td>random_state</td>
+<td>int</td>
+<td>None</td>
+<td>Pseudo random number generator state used for random uniform sampling of parameter candidate values.<br>Pass an int for reproducible output across multiple function calls.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L623" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="densitycrossvalidation.fit" class="level3">
+<h3 class="anchored" data-anchor-id="densitycrossvalidation.fit">DensityCrossValidation.fit</h3>
+<blockquote class="blockquote">
+<pre><code> DensityCrossValidation.fit (X:numpy.ndarray, y:numpy.ndarray)</code></pre>
+</blockquote>
+<table class="table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 38%">
+<col style="width: 52%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>X</td>
+<td>np.ndarray</td>
+<td>Feature matrix (has to work with the folds specified via <code>cvFolds</code>)</td>
+</tr>
+<tr class="even">
+<td>y</td>
+<td>np.ndarray</td>
+<td>Target values (has to work with the folds specified via <code>cvFolds</code>)</td>
+</tr>
+</tbody>
+</table>
+<section id="scores-for-single-fold-2" class="level4">
+<h4 class="anchored" data-anchor-id="scores-for-single-fold-2">Scores for Single Fold</h4>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L668" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+</section>
+<section id="getfoldscore_wasserstein" class="level3">
+<h3 class="anchored" data-anchor-id="getfoldscore_wasserstein">getFoldScore_wasserstein</h3>
+<blockquote class="blockquote">
+<pre><code> getFoldScore_wasserstein (estimator, parameterGrid, cvFold, p, X, y)</code></pre>
+</blockquote>
+</section>
+</section>
+<section id="cv---combined---wasserstein-distance" class="level2">
+<h2 class="anchored" data-anchor-id="cv---combined---wasserstein-distance">CV - Combined - Wasserstein Distance</h2>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L735" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="densitycrossvalidationlsx" class="level3">
+<h3 class="anchored" data-anchor-id="densitycrossvalidationlsx">DensityCrossValidationLSx</h3>
+<blockquote class="blockquote">
+<pre><code> DensityCrossValidationLSx (estimatorLSx, cvFolds, parameterGridLSx:dict,
+                            parameterGridEstimator:dict,
+                            randomSearchLSx:bool=False,
+                            randomSearchEstimator:bool=False,
+                            nIterLSx:int=None, nIterEstimator:int=None,
+                            p:int=1, n_jobs:int=None,
+                            random_state:int=None)</code></pre>
+</blockquote>
+<p>Class to efficiently tune the <code>binSize</code> parameter of all Level-Set based models.</p>
+<table class="table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>estimatorLSx</td>
+<td></td>
+<td></td>
+<td>A Level-Set based model.</td>
+</tr>
+<tr class="even">
+<td>cvFolds</td>
+<td></td>
+<td></td>
+<td>An iterable yielding (train, test) splits as arrays of indices.</td>
+</tr>
+<tr class="odd">
+<td>parameterGridLSx</td>
+<td>dict</td>
+<td></td>
+<td>dict or list of dicts with LSx parameters names (<code>str</code>) as keys and distributions<br>or lists of parameters to try. Distributions must provide a <code>rvs</code><br>method for sampling (such as those from scipy.stats.distributions).</td>
+</tr>
+<tr class="even">
+<td>parameterGridEstimator</td>
+<td>dict</td>
+<td></td>
+<td>dict or list of dicts with parameters names (<code>str</code>) of the point predictor as keys<br>and distributions or lists of parameters to try. Distributions must provide a <code>rvs</code><br>method for sampling (such as those from scipy.stats.distributions).</td>
+</tr>
+<tr class="odd">
+<td>randomSearchLSx</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to use randomized search or grid search for the LSx parameters.</td>
+</tr>
+<tr class="even">
+<td>randomSearchEstimator</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to use randomized search or grid search for the point predictor parameters.</td>
+</tr>
+<tr class="odd">
+<td>nIterLSx</td>
+<td>int</td>
+<td>None</td>
+<td>Number of parameter settings of the LSx model that are sampled if <code>randomSearchLSx == True</code>. <br>LSx parameter settings are usually relatively cheap to evaluate, so all sampled LSx paramater settings<br>are evaluated for each point predictor parameter setting.</td>
+</tr>
+<tr class="even">
+<td>nIterEstimator</td>
+<td>int</td>
+<td>None</td>
+<td>Number of parameter settings of the underlying point predictor that are sampled if <br><code>randomSearchEstimator == True</code>. nIterEstimator trades off runtime vs quality of the solution.</td>
+</tr>
+<tr class="odd">
+<td>p</td>
+<td>int</td>
+<td>1</td>
+<td>The order of the wasserstein distance to evaluate each hyperparameter settings.</td>
+</tr>
+<tr class="even">
+<td>n_jobs</td>
+<td>int</td>
+<td>None</td>
+<td>number of folds being computed in parallel.</td>
+</tr>
+<tr class="odd">
+<td>random_state</td>
+<td>int</td>
+<td>None</td>
+<td>Pseudo random number generator state used for random uniform sampling of parameter candidate values.<br>Pass an int for reproducible output across multiple function calls.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L829" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="densitycrossvalidationlsx.fit" class="level3">
+<h3 class="anchored" data-anchor-id="densitycrossvalidationlsx.fit">DensityCrossValidationLSx.fit</h3>
+<blockquote class="blockquote">
+<pre><code> DensityCrossValidationLSx.fit (X:numpy.ndarray, y:numpy.ndarray)</code></pre>
+</blockquote>
+<table class="table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 38%">
+<col style="width: 52%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>X</td>
+<td>np.ndarray</td>
+<td>Feature matrix (has to work with the folds specified via <code>cvFolds</code>)</td>
+</tr>
+<tr class="even">
+<td>y</td>
+<td>np.ndarray</td>
+<td>Target values (has to work with the folds specified via <code>cvFolds</code>)</td>
+</tr>
+</tbody>
+</table>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># show_doc(CrossValidationLSx_combined.fit)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="scores-for-single-fold-3" class="level4">
+<h4 class="anchored" data-anchor-id="scores-for-single-fold-3">Scores for Single Fold</h4>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L891" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+</section>
+<section id="getfoldscorelsx_wasserstein" class="level3">
+<h3 class="anchored" data-anchor-id="getfoldscorelsx_wasserstein">getFoldScoreLSx_wasserstein</h3>
+<blockquote class="blockquote">
+<pre><code> getFoldScoreLSx_wasserstein (estimatorLSx, parameterGridLSx,
+                              parameterGridEstimator, cvFold, p, X, y)</code></pre>
+</blockquote>
+</section>
+</section>
+<section id="helper-functions" class="level2">
+<h2 class="anchored" data-anchor-id="helper-functions">Helper Functions</h2>
+<section id="get-pinball-loss" class="level3">
+<h3 class="anchored" data-anchor-id="get-pinball-loss">Get Pinball Loss</h3>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L974" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="getpinballloss" class="level3">
+<h3 class="anchored" data-anchor-id="getpinballloss">getPinballLoss</h3>
+<blockquote class="blockquote">
+<pre><code> getPinballLoss (decisions, yTest, prob)</code></pre>
+</blockquote>
+</section>
+<section id="get-wasserstein-distances" class="level3">
+<h3 class="anchored" data-anchor-id="get-wasserstein-distances">Get Wasserstein Distances</h3>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L984" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="getwassersteindistances" class="level3">
+<h3 class="anchored" data-anchor-id="getwassersteindistances">getWassersteinDistances</h3>
+<blockquote class="blockquote">
+<pre><code> getWassersteinDistances (densities, yTest, p)</code></pre>
+</blockquote>
+</section>
+<section id="grouped-time-series-split" class="level3">
+<h3 class="anchored" data-anchor-id="grouped-time-series-split">Grouped Time Series Split</h3>
+<hr>
+<p><a href="https://github.com/kaiguender/dddex/blob/main/dddex/crossValidation.py#L1013" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="groupedtimeseriessplit" class="level3">
+<h3 class="anchored" data-anchor-id="groupedtimeseriessplit">groupedTimeSeriesSplit</h3>
+<blockquote class="blockquote">
+<pre><code> groupedTimeSeriesSplit (data, kFolds, testLength, groupFeature,
+                         timeFeature)</code></pre>
+</blockquote>
+</section>
+</section>
+<section id="test-code" class="level1">
+<h1>Test Code</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># import numpy as np</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="co"># import pandas as pd</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="co"># from dddex.levelSetKDEx_univariate import *</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="co"># from dddex.loadData import *</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="co"># from lightgbm import LGBMRegressor</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="co"># from sklearn.model_selection import RandomizedSearchCV</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a><span class="co"># import time</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a><span class="co"># import ipdb</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># data, XTrain, yTrain, XTest, yTest = loadDataBakery()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># LGBM = LGBMRegressor(n_jobs = 1)</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="co"># LGBM.fit(XTrain, yTrain)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># dataTrain = data[data.label == 'train']</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co"># cvFolds = groupedTimeSeriesSplit(data = dataTrain, </span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  kFolds = 3, </span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  testLength = 28, </span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  groupFeature = 'id', </span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  timeFeature = 'dayIndex')</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co"># paramGridEstimator = {'num_leaves': [20, 40, 60, 80, 100, 150],</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="co">#                       'max_depth': [-1, 3, 4, 5, 6, 7],</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="co">#                       'min_child_samples': [2, 4, 6, 8, 10, 13, 16, 20, 25, 50, 75, 100, 150, 200, 300, 400],</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="co">#                       'learning_rate': [0.05, 0.1, 0.15, 0.2],</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="co">#                       'n_estimators': [100, 200, 300, 400, 500, 600],</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a><span class="co">#                       'subsample': [0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1],</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="co">#                       'colsample_bytree': [0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1]}</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="co"># CVEstimator = RandomizedSearchCV(estimator = LGBM,</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  cv = cvFolds,</span></span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  param_distributions = paramGridEstimator,</span></span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  scoring = 'neg_mean_squared_error',</span></span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  n_iter = 100,</span></span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  refit = True,</span></span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  n_jobs = len(cvFolds),</span></span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  return_train_score = True,</span></span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a><span class="co">#                                  verbose = 0)</span></span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a><span class="co"># CVEstimator.fit(XTrain, yTrain)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># # LSKDEx = LevelSetKDEx(estimator = CVEstimator.best_estimator_)</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="co"># LSKDEx = LevelSetKDEx(estimator = LGBM)</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="co"># paramGridLSx = {'binSize': [10, 20, 35, 50, 75, 100, 150, 200, 250, 400, 600, 800, 1000],</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="co">#                 'weightsByDistance': [True, False]}</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="co"># CV = DensityCrossValidation(estimator = LSKDEx,</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="co">#                             cvFolds = cvFolds,</span></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a><span class="co">#                             parameterGrid = paramGridLSx,</span></span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a><span class="co">#                             n_jobs = len(cvFolds),</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a><span class="co">#                             randomSearch = True,</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a><span class="co">#                             nIter = 5)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ps = ParameterSampler(param_distributions = paramGridLSx, n_iter = 4)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># list(ps.__iter__())</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># CV.fit(X = XTrain, y = yTrain)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># CV.cvResults</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
