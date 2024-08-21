@@ -25,7 +25,7 @@ from .wSAA import SampleAverageApproximation, RandomForestWSAA, RandomForestWSAA
 from .utils import restructureWeightsDataList_multivariate
 
 # %% auto 0
-__all__ = ['LevelSetKDEx_multivariate']
+__all__ = ['LevelSetKDEx_multivariate', 'LevelSetKDEx_multivariate_opt']
 
 # %% ../nbs/02_levelSetKDEx_multivariate.ipynb 6
 class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx):
@@ -123,6 +123,252 @@ class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx)
         
         # Train kmeans model based on the faiss library
         kmeans = faiss.Kmeans(d = yPredMod.shape[1], k = nClusters)
+        kmeans.train(yPredMod)
+
+        # Get cluster centers created by faiss. IMPORTANT NOTE: not all clusters are used! We will handle that further below.
+        centersAll = kmeans.centroids
+        
+        # Compute the cluster assignment for each sample
+        if self.equalBins:
+            clusterAssignments = self._getEqualSizedClusters(y = yPredMod)            
+        else:
+            clusterAssignments = kmeans.assign(yPredMod)[1]
+        
+        # Based on the clusters and cluster assignments, we can now compute the indices belonging to each bin / cluster
+        indicesPerBin = defaultdict(list)
+        binSizes = defaultdict(int)
+
+        for index, cluster in enumerate(clusterAssignments):
+            indicesPerBin[cluster].append(index)
+            binSizes[cluster] += 1
+
+        #---
+
+        clustersUsed = np.array(list(indicesPerBin.keys()))
+        clustersOrdered = np.sort(clustersUsed)
+
+        centers = centersAll[clustersOrdered]
+        indicesPerBin = [indicesPerBin[cluster] for cluster in clustersOrdered]
+        binSizes = np.array([binSizes[cluster] for cluster in clustersOrdered])
+
+        #---
+
+        # Merge clusters that are too small (i.e. contain less than binSize / 2 samples).
+        # clustersTooSmall is the array of all clusters that are too small.
+        threshold = self.binSize / 2
+        binsTooSmall = np.where(binSizes < threshold)[0]
+        
+        if len(binsTooSmall) > 0:
+
+            # remove all centers from centersOld that are part of clustersTooSmall
+            centersNew = np.delete(centers, binsTooSmall, axis = 0)
+            centersTooSmall = centers[binsTooSmall]
+            centersNew_oldIndices = np.delete(np.arange(len(centers)), binsTooSmall)
+
+            KDTreeNew = KDTree(centersNew)
+            clustersToMerge = KDTreeNew.query(centersTooSmall)[1]
+
+            for i, clusterToMerge in enumerate(clustersToMerge):
+                indicesPerBin[centersNew_oldIndices[clusterToMerge]].extend(indicesPerBin[binsTooSmall[i]])
+
+            # Remove the indices given by clustersTooSmall from indicesPerBin by deleting the list entry
+            indicesPerBin = [np.array(indices) for binIndex, indices in enumerate(indicesPerBin) if binIndex not in binsTooSmall]
+            binSizes = [len(indices) for indices in indicesPerBin]
+            binSizes = pd.Series(binSizes)
+
+            self.centers = centersNew
+            self.binSizes = binSizes
+            self.kmeans = KDTreeNew
+        
+        else:
+            self.centers = centers
+            self.binSizes = pd.Series(binSizes)
+            self.kmeans = KDTree(self.centers)
+
+            # Transform the indices given by indicesPerBin into numpy arrays
+            indicesPerBin = [np.array(indices) for indices in indicesPerBin]
+            
+        #---
+        
+        self.yTrain = y
+        self.yPredTrain = yPred
+        self.indicesPerBin = indicesPerBin
+        self.fitted = True
+        
+        
+    #---
+    
+    def _getEqualSizedClusters(self,
+                               y,
+                               ):
+            
+        centers = self.centers.reshape(-1, 1, y.shape[-1]).repeat(self.binSize, 1).reshape(-1, y.shape[-1])
+
+        distance_matrix = cdist(y, centers)
+        clusterAssignments = linear_sum_assignment(distance_matrix)[1]//self.binSize
+
+        return clusterAssignments
+
+    #---
+    
+    def getWeights(self, 
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None, 
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        
+        # __annotations__ = BaseWeightsBasedEstimator.getWeights.__annotations__
+        __doc__ = BaseWeightsBasedEstimator_multivariate.getWeights.__doc__
+        
+        if not self.fitted:
+            raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
+                                 "appropriate arguments before trying to compute weights.")
+        
+        #---
+        
+        yPred = self.estimator.predict(X).astype(np.float32)
+        
+        if len(yPred.shape) == 1:
+            yPred = yPred.reshape(-1, 1)
+            
+        #---
+        
+        if self.equalBins:
+            binPerPred = self._getEqualSizedClusters(y = yPred)
+            
+        else:
+            binPerPred = self.kmeans.query(yPred)[1]
+        
+        #---
+        
+        neighborsList = [self.indicesPerBin[binIndex] for binIndex in binPerPred]
+        
+        weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+        
+        weightsDataList = restructureWeightsDataList_multivariate(weightsDataList = weightsDataList, 
+                                                                  outputType = outputType, 
+                                                                  y = self.yTrain,
+                                                                  scalingList = scalingList,
+                                                                  equalWeights = True)
+        
+        return weightsDataList
+    
+
+# %% ../nbs/02_levelSetKDEx_multivariate.ipynb 8
+class LevelSetKDEx_multivariate_opt(BaseWeightsBasedEstimator_multivariate, BaseLSx):
+    """
+    `LevelSetKDEx` turns any point forecasting model into an estimator of the underlying conditional density.
+    The name 'LevelSet' stems from the fact that this approach interprets the values of the point forecasts
+    as a similarity measure between samples. 
+    In this version of the LSx algorithm, we are grouping the point predictions of the samples specified via `X`
+    based on a k-means clustering algorithm. The number of clusters is determined by the `nClusters` parameter.  
+    In order to ensure theoretical asymptotic optimality of the algorithm, it has to be ensured that the number
+    of training observations receiving positive weight is at least minClusterSize, while minClusterSize has to be 
+    an element of o(N) meaning minClusterSize / N -> 0 as N -> infinity.
+    To ensure this, each cluster is checked for its size and clusters being smaller than minClusterSize have to be
+    modified. For every cluster that is too small, we are recurvely searching for the closest other cluster until
+    the size of the combined cluster is at least minClusterSize. The clusters are not actually merged in the traditional
+    sense, though. Instead, we are creating new overlapping sets of samples that are used to compute the weights. 
+    Let's say we have three clusters A, B and C, minClusterSize = 10, the sizes of the clusters are 4, 4 and 20. Furthermore,
+    assume B is closest to A and C closest to B. The set of indices are given then as follows:
+    A: A + B + C
+    B: B + C
+    C: C
+    This way it is ensured that the number of training observations receiving positive weight is at least 10 for every cluster. 
+    At the same time, the above algorithm ensure that the distance of the samples receiving positive weight 
+    """
+    
+    def __init__(self, 
+                 estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
+                 nClusters: int=None, # Number of clusters being created while running fit.
+                 minClusterSize: int=None, # Minimum size of a cluster. If a cluster is smaller than this value, it will be merged with another cluster.
+                 ):
+        
+        super(BaseEstimator, self).__init__(estimator = estimator)
+        
+        # Check if binSize is int
+        if not isinstance(nClusters, int):
+            raise ValueError("'nClusters' must be an integer!")
+        
+        # Check if minClusterSize is int
+        if not isinstance(minClusterSize, int):
+            raise ValueError("'minClusterSize' must be an integer!")
+        
+        self.nClusters = nClusters
+        self.minClusterSize = minClusterSize
+        
+        self.yTrain = None
+        self.yPredTrain = None
+        self.indicesPerBin = None
+        self.lowerBoundPerBin = None
+        self.fitted = False
+    
+    #---
+    
+    def fit(self, 
+            X: np.ndarray, # Feature matrix used by `estimator` to predict `y`.
+            y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
+            ):
+        """
+        Fit `LevelSetKDEx` model by grouping the point predictions of the samples specified via `X`
+        according to a k-means clustering algorithm. The number of clusters is determined by the `nClusters` parameter.
+        In order to ensure theoretical asymptotic optimality of the algorithm, it has to be ensured that the number
+        of training observations receiving positive weight is at least minClusterSize, while minClusterSize has to be
+        an element of o(N) meaning minClusterSize / N -> 0 as N -> infinity.
+        The specifics on how the clusters are created can be found in the class documentation.
+        """
+        
+        # Checks
+        if self.nClusters is None:
+            raise ValueError("'nClusters' must be specified to fit the LSx estimator!")
+        
+        if self.minClusterSize is None:
+            raise ValueError("'minClusterSize' must be specified to fit the LSx estimator!")
+            
+        if self.nClusters > y.shape[0]:
+            raise ValueError("'nClusters' mustn't be bigger than the size of 'y'!")
+        
+        if self.minClusterSize > y.shape[0]:
+            raise ValueError("'minClusterSize' mustn't be bigger than the size of 'y'!")
+        
+        if X.shape[0] != y.shape[0]:
+            raise ValueError("'X' and 'y' must contain the same number of samples!")
+        
+        # IMPORTANT: In case 'y' is given as a pandas.Series, we can potentially run into indexing 
+        # problems later on.
+        if isinstance(y, pd.Series):
+            y = y.ravel()
+        
+        #---
+        
+        try:
+            yPred = self.estimator.predict(X)
+            
+        except NotFittedError:
+            try:
+                self.estimator.fit(X = X, y = y)                
+            except:
+                raise ValueError("Couldn't fit 'estimator' with user specified 'X' and 'y'!")
+            else:
+                yPred = self.estimator.predict(X)
+        
+        #---
+        
+        if len(y.shape) == 1:
+            y = y.reshape(-1, 1)
+            yPred = yPred.reshape(-1, 1)
+        
+        #---
+
+        # Modify yPred to be compatible with faiss
+        yPredMod = yPred.astype(np.float32)
+        
+        # Train kmeans model based on the faiss library
+        kmeans = faiss.Kmeans(d = yPredMod.shape[1], k = self.nClusters)
         kmeans.train(yPredMod)
 
         # Get cluster centers created by faiss. IMPORTANT NOTE: not all clusters are used! We will handle that further below.
