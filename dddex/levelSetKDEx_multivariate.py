@@ -372,88 +372,74 @@ class LevelSetKDEx_multivariate_opt(BaseWeightsBasedEstimator_multivariate, Base
         kmeans.train(yPredMod)
 
         # Get cluster centers created by faiss. IMPORTANT NOTE: not all clusters are used! We will handle that further below.
-        centersAll = kmeans.centroids
+        centers = kmeans.centroids
+        clusters = np.arange(centers.shape[0])
         
         # Compute the cluster assignment for each sample
-        if self.equalBins:
-            clusterAssignments = self._getEqualSizedClusters(y = yPredMod)            
-        else:
-            clusterAssignments = kmeans.assign(yPredMod)[1]
+        clusterAssignments = kmeans.assign(yPredMod)[1]
         
         # Based on the clusters and cluster assignments, we can now compute the indices belonging to each bin / cluster
-        indicesPerBin = defaultdict(list)
-        binSizes = defaultdict(int)
+        indicesPerBin = [[] for i in range(self.nClusters)]
+        clusterSizes = [0 for i in range(self.nClusters)]
 
         for index, cluster in enumerate(clusterAssignments):
             indicesPerBin[cluster].append(index)
-            binSizes[cluster] += 1
+            clusterSizes[cluster] += 1
+
+        clusterSizes = np.array(clusterSizes)
+
+        # Just needed for a check in the end
+        maxSizeOfExistingClusters = np.max(clusterSizes)
 
         #---
 
-        clustersUsed = np.array(list(indicesPerBin.keys()))
-        clustersOrdered = np.sort(clustersUsed)
-
-        centers = centersAll[clustersOrdered]
-        indicesPerBin = [indicesPerBin[cluster] for cluster in clustersOrdered]
-        binSizes = np.array([binSizes[cluster] for cluster in clustersOrdered])
-
-        #---
-
-        # Merge clusters that are too small (i.e. contain less than binSize / 2 samples).
         # clustersTooSmall is the array of all clusters that are too small.
-        threshold = self.binSize / 2
-        binsTooSmall = np.where(binSizes < threshold)[0]
+        clustersTooSmall = np.where(np.array(clusterSizes) < self.minClusterSize)[0]
         
-        if len(binsTooSmall) > 0:
+        if len(clustersTooSmall) > 0:
+            
+            indicesPerBinNew = copy.deepcopy(indicesPerBin)
 
-            # remove all centers from centersOld that are part of clustersTooSmall
-            centersNew = np.delete(centers, binsTooSmall, axis = 0)
-            centersTooSmall = centers[binsTooSmall]
-            centersNew_oldIndices = np.delete(np.arange(len(centers)), binsTooSmall)
+            # We are searching for the closest other cluster for each cluster that is too small
+            # As we don't know how many nearest neighbors we need, we are setting k to the number of clusters
+            nearestClusters = KDTree(centers).query(centers[clustersTooSmall], k = centers.shape[0])[1]
 
-            KDTreeNew = KDTree(centersNew)
-            clustersToMerge = KDTreeNew.query(centersTooSmall)[1]
+            # sizeNearestClusters is an array of shape (len(clustersTooSmall), self.nClusters)
+            sizeNearestClusters = clusterSizes[nearestClusters]
 
-            for i, clusterToMerge in enumerate(clustersToMerge):
-                indicesPerBin[centersNew_oldIndices[clusterToMerge]].extend(indicesPerBin[binsTooSmall[i]])
+            # Calculating the cumulative sum of the cluster sizes over each row allows us to find out 
+            # which cluster is the first one that is big enough to make the current cluster big enough
+            clusterSizesCumSum = np.cumsum(sizeNearestClusters, axis = 1)
 
-            # Remove the indices given by clustersTooSmall from indicesPerBin by deleting the list entry
-            indicesPerBin = [np.array(indices) for binIndex, indices in enumerate(indicesPerBin) if binIndex not in binsTooSmall]
-            binSizes = [len(indices) for indices in indicesPerBin]
-            binSizes = pd.Series(binSizes)
+            # argmax returns the first index where the condition is met.
+            necessaryClusters = (clusterSizesCumSum >= self.minClusterSize).argmax(axis = 1)
+            
+            # We are now creating the new indicesPerBin list by extending the indices of the clusters that are too small
+            for i, cluster in enumerate(clustersTooSmall):
+                clustersToAdd = nearestClusters[i, 0:necessaryClusters[i] + 1]
+                    
+                indicesPerBinNew[cluster] = np.concatenate([indicesPerBin[cluster] for cluster in clustersToAdd])
+                clusterSizes[cluster] = len(indicesPerBinNew[cluster])
 
-            self.centers = centersNew
-            self.binSizes = binSizes
-            self.kmeans = KDTreeNew
+                # Following our intended logic, the resulting clusters can't be bigger than minClusterSize + maxSizeOfExistingClusters
+                if len(indicesPerBinNew[cluster]) > self.minClusterSize + maxSizeOfExistingClusters:
+                    raise Warning("The cluster size is bigger than minClusterSize + maxSizeOfExistingClusters. This should not happen!")
+
+            # indicesPerBin is only turned into a dictionary to be consistent with the other implementations of LevelSetKDEx
+            self.indicesPerBin = {cluster: np.array(indicesPerBinNew[cluster], dtype = 'uintc') for cluster in range(len(indicesPerBinNew))}
+            self.clusterSizes = pd.Series(clusterSizes)
         
         else:
-            self.centers = centers
-            self.binSizes = pd.Series(binSizes)
-            self.kmeans = KDTree(self.centers)
-
-            # Transform the indices given by indicesPerBin into numpy arrays
-            indicesPerBin = [np.array(indices) for indices in indicesPerBin]
+            self.indicesPerBin = {cluster: np.array(indicesPerBin[cluster], dtype = 'uintc') for cluster in range(len(indicesPerBin))}
+            self.clusterSizes = pd.Series(clusterSizes)
             
         #---
         
         self.yTrain = y
         self.yPredTrain = yPred
-        self.indicesPerBin = indicesPerBin
+        self.centers = centers
+        self.kmeans = kmeans
         self.fitted = True
-        
-        
-    #---
-    
-    def _getEqualSizedClusters(self,
-                               y,
-                               ):
-            
-        centers = self.centers.reshape(-1, 1, y.shape[-1]).repeat(self.binSize, 1).reshape(-1, y.shape[-1])
-
-        distance_matrix = cdist(y, centers)
-        clusterAssignments = linear_sum_assignment(distance_matrix)[1]//self.binSize
-
-        return clusterAssignments
 
     #---
     
@@ -482,16 +468,12 @@ class LevelSetKDEx_multivariate_opt(BaseWeightsBasedEstimator_multivariate, Base
             yPred = yPred.reshape(-1, 1)
             
         #---
-        
-        if self.equalBins:
-            binPerPred = self._getEqualSizedClusters(y = yPred)
-            
-        else:
-            binPerPred = self.kmeans.query(yPred)[1]
+
+        clusterPerPred = self.kmeans.assign(yPred)[1]
         
         #---
         
-        neighborsList = [self.indicesPerBin[binIndex] for binIndex in binPerPred]
+        neighborsList = [self.indicesPerBin[cluster] for cluster in clusterPerPred]
         
         weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
         
