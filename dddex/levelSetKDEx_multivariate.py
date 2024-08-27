@@ -14,6 +14,7 @@ from scipy.optimize import linear_sum_assignment
 from scipy.spatial import KDTree
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
+from sklearn.tree import DecisionTreeRegressor
 
 from collections import defaultdict, Counter, deque
 from joblib import Parallel, delayed, dump, load
@@ -21,11 +22,12 @@ import copy
 import warnings
 
 from .baseClasses import BaseLSx, BaseWeightsBasedEstimator_multivariate
+from .levelSetKDEx_univariate import generateBins
 from .wSAA import SampleAverageApproximation, RandomForestWSAA, RandomForestWSAA_LGBM
 from .utils import restructureWeightsDataList_multivariate
 
 # %% auto 0
-__all__ = ['LevelSetKDEx_multivariate', 'LevelSetKDEx_multivariate_opt']
+__all__ = ['LevelSetKDEx_multivariate', 'LevelSetKDEx_multivariate_opt', 'LevelSetKDEx_DT', 'LevelSetKDEx_multivariate_bin']
 
 # %% ../nbs/02_levelSetKDEx_multivariate.ipynb 6
 class LevelSetKDEx_multivariate(BaseWeightsBasedEstimator_multivariate, BaseLSx):
@@ -470,6 +472,322 @@ class LevelSetKDEx_multivariate_opt(BaseWeightsBasedEstimator_multivariate, Base
         #---
 
         clusterPerPred = self.kmeans.assign(yPred)[1]
+        
+        #---
+        
+        neighborsList = [self.indicesPerBin[cluster] for cluster in clusterPerPred]
+        
+        weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors)) for neighbors in neighborsList]
+        
+        weightsDataList = restructureWeightsDataList_multivariate(weightsDataList = weightsDataList, 
+                                                                  outputType = outputType, 
+                                                                  y = self.yTrain,
+                                                                  scalingList = scalingList,
+                                                                  equalWeights = True)
+        
+        return weightsDataList
+    
+
+# %% ../nbs/02_levelSetKDEx_multivariate.ipynb 10
+class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
+    """
+    `LevelSetKDEx` turns any point forecasting model into an estimator of the underlying conditional density.
+    The name 'LevelSet' stems from the fact that this approach interprets the values of the point forecasts
+    as a similarity measure between samples. 
+    TBD
+    """
+    
+    def __init__(self, 
+                 estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
+                 max_depth: int=8, # Maximum depth of the decision tree used to generate the bins.
+                 min_samples_leaf: int=100, # Minimum number of samples required to be in a bin.
+                 ):
+        
+        super(BaseEstimator, self).__init__(estimator = estimator)
+
+        # Check if binSize is integer
+        if not isinstance(binSize, (int, np.int32, np.int64)):
+            raise ValueError("'binSize' must be an integer!")
+
+        self.binSize = binSize
+        
+        self.yTrain = None
+        self.yPredTrain = None
+        self.drf = None
+        self.fitted = False
+    
+    #---
+    
+    def fit(self: LevelSetKDEx_DRF, 
+            X: np.ndarray, # Feature matrix used by `estimator` to predict `y`.
+            y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
+            ):
+        """
+        Fit `LevelSetKDEx` model by grouping the point predictions of the samples specified via `X`
+        according to their value. Samples are recursively sorted into bins until each bin contains
+        `binSize` many samples. For details, checkout the function `generateBins` which does the
+        heavy lifting.
+        """
+        
+        # Checks
+        if not isinstance(self.binSize, (int, np.int32, np.int64)):
+            raise ValueError("'binSize' must be an integer!")
+            
+        if self.binSize > y.shape[0]:
+            raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
+        
+        if X.shape[0] != y.shape[0]:
+            raise ValueError("'X' and 'y' must contain the same number of samples!")
+        
+        #---
+        
+        try:
+            yPred = self.estimator.predict(X)
+            
+        except NotFittedError:
+            try:
+                self.estimator.fit(X = X, y = y)                
+            except:
+                raise ValueError("Couldn't fit 'estimator' with user specified 'X' and 'y'!")
+            else:
+                yPred = self.estimator.predict(X)
+        
+        #---
+        
+        yPred = pd.DataFrame(yPred)
+        y = pd.Series(y)
+
+        DRF = drf(min_node_size = self.binSize, num_trees = 100, num_features = 1, honesty = False, sample_fraction = 0.5, response_scaling = False, mtry = 1, num_threads = 16)
+        DRF.fit(X = yPred, Y = y)
+        
+        #---
+        
+        # IMPORTANT: In case 'y' is given as a pandas.Series, we can potentially run into indexing 
+        # problems later on.
+        self.yTrain = y.ravel()
+        
+        self.yPredTrain = yPred
+        self.drf = DRF
+        self.fitted = True
+        
+    #---
+    
+    def getWeights(self: LevelSetKDEx_DRF, 
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None, 
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        
+        # __annotations__ = BaseWeightsBasedEstimator.getWeights.__annotations__
+        __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
+        
+        if not self.fitted:
+            raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
+                                 "appropriate arguments before trying to compute weights.")
+        
+        #---
+        
+        yPred = self.estimator.predict(X)
+        yPred = pd.DataFrame(yPred)
+        
+        weightsArray = self.drf.predict(yPred).weights
+        weightsList = list(weightsArray)
+        weightsDataList = [(weights[weights > 0], np.where(weights > 0)[0]) for weights in weightsList]
+
+        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                     outputType = outputType, 
+                                                     y = self.yTrain,
+                                                     scalingList = scalingList,
+                                                     equalWeights = True)
+        
+        return weightsDataList
+    
+    
+
+# %% ../nbs/02_levelSetKDEx_multivariate.ipynb 12
+class LevelSetKDEx_multivariate_bin(BaseWeightsBasedEstimator_multivariate, BaseLSx):
+    """
+    `LevelSetKDEx` turns any point forecasting model into an estimator of the underlying conditional density.
+    The name 'LevelSet' stems from the fact that this approach interprets the values of the point forecasts
+    as a similarity measure between samples. 
+    In this version of the LSx algorithm, we are applying the so-called Gessaman rule to create statistically
+    equivalent blocks of samples. In essence, the algorithm is a multivariate extension of the univariate
+    LevelSetKDEx algorithm based on bin-building. 
+    We are creating equally sized bins of samples based on the point predictions of the samples specified via `X`
+    for every coordinate axis. Every bin of one axis is combined with the bins of all other axes resulting in
+    a total of nBinsPerDim^dim many bins. 
+    Example: Let's say we have 100000 samples, the binSize is given as 20 and the number of dimension
+    is 3. As the binSize is given as 20, we want to create 5000 bins alltogether. Hence, there have to be
+    5000^(1/dim) = 5000^(1/3) = 17 bins per dimension. 
+    IMPORTANT NOTE: The getWeights function is not yet finished and has to be completed.
+    """
+    
+    def __init__(self, 
+                 estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
+                 nBinsPerDim: int=None, # Number of samples belonging to each bin.
+                 ):
+        
+        super(BaseEstimator, self).__init__(estimator = estimator)
+        
+        # Check if binSize is int
+        if not isinstance(nBinsPerDim, int):
+            raise ValueError("'binSize' must be an integer!")
+        
+        self.nBinsPerDim = nBinsPerDim
+        
+        self.yTrain = None
+        self.yPredTrain = None
+        self.indicesPerBin = None
+        self.lowerBoundPerBin = None
+        self.fitted = False
+    
+    #---
+    
+    def fit(self, 
+            X: np.ndarray, # Feature matrix used by `estimator` to predict `y`.
+            y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
+            ):
+        """
+        Fit `LevelSetKDEx` model by grouping the point predictions of the samples specified via `X`
+        according to a simple binning rule called Gessaman rule based on the point predictions of the samples.
+        """
+        
+        # Checks
+        if self.nBinsPerDim is None:
+            raise ValueError("'binSize' must be specified to fit the LSx estimator!")
+        
+        if self.nBinsPerDim > y.shape[0]:
+            raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
+        
+        if X.shape[0] != y.shape[0]:
+            raise ValueError("'X' and 'y' must contain the same number of samples!")
+        
+        # IMPORTANT: In case 'y' is given as a pandas.Series, we can potentially run into indexing 
+        # problems later on.
+        if isinstance(y, pd.Series):
+            y = y.ravel()
+        
+        #---
+        
+        try:
+            yPred = self.estimator.predict(X)
+            
+        except NotFittedError:
+            try:
+                self.estimator.fit(X = X, y = y)                
+            except:
+                raise ValueError("Couldn't fit 'estimator' with user specified 'X' and 'y'!")
+            else:
+                yPred = self.estimator.predict(X)
+        
+        #---
+        
+        if len(y.shape) == 1:
+            y = y.reshape(-1, 1)
+            yPred = yPred.reshape(-1, 1)
+        
+        #---
+
+        
+
+        # We have to calculate the size of the bins for every coordinate axis
+        dim = yPred.shape[1]
+
+        for j in range(dim):
+
+            yPredDim = yPred[:, j]
+
+            if j == 0:
+                
+                binSize_firstAxis = int(np.ceil(yPredDim.shape[0] / self.nBinsPerDim))
+
+                indicesPerBin, lowerBounds = generateBins(binSize = binSize_firstAxis,
+                                                          yPred = yPredDim)
+                
+                indicesPerBin = {(bin, ): indices for bin, indices in indicesPerBin.items()}
+                lowerBounds = {(bin, ): [lowerBound] for bin, lowerBound in lowerBounds.items()}
+
+            else:
+                
+                indicesPerBin_ToAdd = {}
+                lowerBounds_ToAdd = {}
+
+                for bin in indicesPerBin.keys():
+
+                    yPredDim_bin = yPredDim[indicesPerBin[bin]]
+                    binSize_newAxis = int(np.ceil(yPredDim_bin.shape[0] / self.nBinsPerDim))
+                    
+                    indicesPerBin_newAxis, lowerBounds_newAxis = generateBins(binSize = binSize_newAxis,
+                                                                              yPred = yPredDim_bin)
+                    
+                    indicesPerBin_ToAdd.update({bin + (bin_new, ): indicesPerBin[bin][indices] for bin_new, indices in indicesPerBin_newAxis.items()})
+                    lowerBounds_ToAdd.update({bin + (bin_new, ): lowerBounds[bin] + [lowerBound] for bin_new, lowerBound in lowerBounds_newAxis.items()})
+
+                indicesPerBin = indicesPerBin_ToAdd
+                lowerBounds = lowerBounds_ToAdd
+
+        # Transform the indices given by indicesPerBin into numpy arrays
+        indicesPerBin = {bin: np.array(indices) for bin, indices in indicesPerBin.items()}
+
+        # Transform the lower bounds given by lowerBounds into a pandas dataframe
+        lowerBoundsDf = pd.DataFrame(lowerBounds).T
+            
+        #---
+        
+        self.yTrain = y
+        self.yPredTrain = yPred
+        self.lowerBoundsDf = lowerBoundsDf
+        self.indicesPerBin = indicesPerBin
+        self.fitted = True
+
+    #---
+    
+    def getWeights(self, 
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None, 
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        
+        # __annotations__ = BaseWeightsBasedEstimator.getWeights.__annotations__
+        __doc__ = BaseWeightsBasedEstimator_multivariate.getWeights.__doc__
+        
+        if not self.fitted:
+            raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
+                                 "appropriate arguments before trying to compute weights.")
+        
+        #---
+        
+        yPred = self.estimator.predict(X).astype(np.float32)
+        
+        if len(yPred.shape) == 1:
+            yPred = yPred.reshape(-1, 1)
+            
+        #---
+
+        # IMPORTANT NOTE: THE CODE BELOW IS NOT FINISHED YET. IT IS JUST A STARTING POINT.
+
+        lowerBounds_firstDim = self.lowerBoundsDf.iloc[:, 0]
+
+        # Filter lowerBounds_firstDim to only contain unique values
+        lowerBounds_firstDim = lowerBounds_firstDim.unique()
+
+        binPerPred_firstDim = np.searchsorted(a = lowerBounds_firstDim, v = yPred[:, 0], side = 'right') - 1
+
+        # The code has to be continued here. We have to find the correct bin for the second dimension, then the third dimension etc.
+        # It seems like we have to iterate over the observations unfortunately. Of course, there could be ways to do the search in
+        # batches, but the code would be much more complicated.
+        for ySingle in yPred:
+            for j in range(1, yPred.shape[1]):
+
+                print(j)
         
         #---
         
