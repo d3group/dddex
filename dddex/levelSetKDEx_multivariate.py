@@ -494,7 +494,7 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
     `LevelSetKDEx` turns any point forecasting model into an estimator of the underlying conditional density.
     The name 'LevelSet' stems from the fact that this approach interprets the values of the point forecasts
     as a similarity measure between samples. 
-    TBD
+    TBD.
     """
     
     def __init__(self, 
@@ -505,11 +505,24 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
         
         super(BaseEstimator, self).__init__(estimator = estimator)
 
-        # Check if binSize is integer
-        if not isinstance(binSize, (int, np.int32, np.int64)):
-            raise ValueError("'binSize' must be an integer!")
+        # Check if max_depth is integer
+        if not isinstance(max_depth, (int, np.int32, np.int64)):
+            raise ValueError("'max_depth' must be an integer!")
+        
+        # Check if max_depth is bigger than 0
+        if max_depth <= 0:
+            raise ValueError("'max_depth' must be bigger than 0!")
+        
+        # Check if min_samples_leaf is integer or float
+        if not isinstance(min_samples_leaf, (int, np.int32, np.int64, float, np.float32, np.float64)):
+            raise ValueError("'min_samples_leaf' must be an integer or float!")
+        
+        # Check if min_samples_leaf is bigger than 0
+        if min_samples_leaf <= 0:
+            raise ValueError("'min_samples_leaf' must be bigger than 0!")
 
-        self.binSize = binSize
+        self.max_depth = max_depth
+        self.min_samples_leaf = min_samples_leaf
         
         self.yTrain = None
         self.yPredTrain = None
@@ -518,7 +531,7 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
     
     #---
     
-    def fit(self: LevelSetKDEx_DRF, 
+    def fit(self: LevelSetKDEx_DT, 
             X: np.ndarray, # Feature matrix used by `estimator` to predict `y`.
             y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
             ):
@@ -528,13 +541,17 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
         `binSize` many samples. For details, checkout the function `generateBins` which does the
         heavy lifting.
         """
+
+        # Check if max_depth is integer
+        if not isinstance(self.max_depth, (int, np.int32, np.int64)):
+            raise ValueError("'max_depth' must be an integer!")
         
-        # Checks
-        if not isinstance(self.binSize, (int, np.int32, np.int64)):
-            raise ValueError("'binSize' must be an integer!")
+        # Check if min_samples_leaf is integer or float
+        if not isinstance(self.min_samples_leaf, (int, np.int32, np.int64, float, np.float32, np.float64)):
+            raise ValueError("'min_samples_leaf' must be an integer or float!")
             
-        if self.binSize > y.shape[0]:
-            raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
+        if self.min_samples_leaf > y.shape[0]:
+            raise ValueError("'min_samples_leaf' mustn't be bigger than the size of 'y'!")
         
         if X.shape[0] != y.shape[0]:
             raise ValueError("'X' and 'y' must contain the same number of samples!")
@@ -554,11 +571,10 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
         
         #---
         
-        yPred = pd.DataFrame(yPred)
-        y = pd.Series(y)
+        tree = DecisionTreeRegressor(max_depth = self.max_depth, min_samples_leaf = self.min_samples_leaf)
 
-        DRF = drf(min_node_size = self.binSize, num_trees = 100, num_features = 1, honesty = False, sample_fraction = 0.5, response_scaling = False, mtry = 1, num_threads = 16)
-        DRF.fit(X = yPred, Y = y)
+        tree.fit(X = yPred, y = y)
+        leafIndicesTrain = tree.apply(yPred)
         
         #---
         
@@ -567,12 +583,13 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
         self.yTrain = y.ravel()
         
         self.yPredTrain = yPred
-        self.drf = DRF
+        self.tree = tree
+        self.leafIndicesTrain = leafIndicesTrain
         self.fitted = True
         
     #---
     
-    def getWeights(self: LevelSetKDEx_DRF, 
+    def getWeights(self: LevelSetKDEx_DT, 
                    X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
                    # Specifies structure of the returned density estimates. One of: 
                    # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
@@ -583,7 +600,7 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
                    ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
         
         # __annotations__ = BaseWeightsBasedEstimator.getWeights.__annotations__
-        __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
+        __doc__ = BaseWeightsBasedEstimator_multivariate.getWeights.__doc__
         
         if not self.fitted:
             raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
@@ -592,17 +609,24 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
         #---
         
         yPred = self.estimator.predict(X)
-        yPred = pd.DataFrame(yPred)
-        
-        weightsArray = self.drf.predict(yPred).weights
-        weightsList = list(weightsArray)
-        weightsDataList = [(weights[weights > 0], np.where(weights > 0)[0]) for weights in weightsList]
+        leafIndicesTest = self.tree.apply(yPred)
 
-        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                     outputType = outputType, 
-                                                     y = self.yTrain,
-                                                     scalingList = scalingList,
-                                                     equalWeights = True)
+        weightsDataList = []
+
+        for leafIndex in leafIndicesTest:
+            leafComparison = (self.leafIndicesTrain == leafIndex) * 1
+            nObsInSameLeaf = np.sum(leafComparison)
+            weights = leafComparison / nObsInSameLeaf
+
+            weightsDataList.append((weights[weights > 0], np.where(weights > 0)[0]))
+        
+        #---
+
+        weightsDataList = restructureWeightsDataList_multivariate(weightsDataList = weightsDataList, 
+                                                                  outputType = outputType, 
+                                                                  y = self.yTrain,
+                                                                  scalingList = scalingList,
+                                                                  equalWeights = True)
         
         return weightsDataList
     
@@ -633,7 +657,7 @@ class LevelSetKDEx_multivariate_bin(BaseWeightsBasedEstimator_multivariate, Base
         
         super(BaseEstimator, self).__init__(estimator = estimator)
         
-        # Check if binSize is int
+        # Check if nBinsPerDim is int
         if not isinstance(nBinsPerDim, int):
             raise ValueError("'binSize' must be an integer!")
         
