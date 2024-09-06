@@ -16,7 +16,7 @@ from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 from sklearn.tree import DecisionTreeRegressor
 
-from collections import defaultdict, Counter, deque
+from collections import defaultdict
 from joblib import Parallel, delayed, dump, load
 import copy
 import warnings
@@ -575,6 +575,11 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
 
         tree.fit(X = yPred, y = y)
         leafIndicesTrain = tree.apply(yPred)
+
+        indicesPerBin = defaultdict(list)
+
+        for index, leafIndex in enumerate(leafIndicesTrain):
+            indicesPerBin[leafIndex].append(index)
         
         #---
         
@@ -584,7 +589,7 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
         
         self.yPredTrain = yPred
         self.tree = tree
-        self.leafIndicesTrain = leafIndicesTrain
+        self.indicesPerBin = indicesPerBin
         self.fitted = True
         
     #---
@@ -611,14 +616,8 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
         yPred = self.estimator.predict(X)
         leafIndicesTest = self.tree.apply(yPred)
 
-        weightsDataList = []
-
-        for leafIndex in leafIndicesTest:
-            leafComparison = (self.leafIndicesTrain == leafIndex) * 1
-            nObsInSameLeaf = np.sum(leafComparison)
-            weights = leafComparison / nObsInSameLeaf
-
-            weightsDataList.append((weights[weights > 0], np.where(weights > 0)[0]))
+        weightsDataList = [(np.repeat(1 / len(self.indicesPerBin[leafIndex]), len(self.indicesPerBin[leafIndex])),
+                            np.array(self.indicesPerBin[leafIndex])) for leafIndex in leafIndicesTest]
         
         #---
 
