@@ -408,7 +408,7 @@ def generateBins(binSize: int, # Size of the bins of values of `yPred` being gro
     for i in range(len(yPred)):
         
         if i == 0:
-            lowerBoundPerBin[binIndex] = np.NINF
+            lowerBoundPerBin[binIndex] = -np.inf
             
         currentBinSize += 1
         trainIndicesLeft -= 1
