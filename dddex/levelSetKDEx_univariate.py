@@ -26,8 +26,8 @@ from .baseClasses import BaseLSx, BaseWeightsBasedEstimator
 from .utils import restructureWeightsDataList
 
 # %% auto 0
-__all__ = ['LevelSetKDEx', 'generateBins', 'LevelSetKDEx_RBF', 'LevelSetKDEx_kNN', 'LevelSetKDEx_NN', 'getNeighbors',
-           'getNeighborsTest', 'getKernelValues', 'LevelSetKDEx_clustering', 'LevelSetKDEx_clustering2']
+__all__ = ['LevelSetKDEx', 'generateBins', 'LevelSetKDEx_NN', 'getNeighbors', 'getNeighborsTest', 'getKernelValues',
+           'LevelSetKDEx_kNN', 'LevelSetKDEx_kMeans', 'LevelSetKDEx_RBF']
 
 # %% ../nbs/01_levelSetKDEx_univariate.ipynb 7
 class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
@@ -390,7 +390,7 @@ class LevelSetKDEx(BaseWeightsBasedEstimator, BaseLSx):
         return meanPosterior, covPosterior
     
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 11
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 9
 def generateBins(binSize: int, # Size of the bins of values of `yPred` being grouped together.
                  yPred: np.ndarray, # 1-dimensional array of predicted values.
                  ):
@@ -431,314 +431,10 @@ def generateBins(binSize: int, # Size of the bins of values of `yPred` being gro
     
     return indicesPerBin, lowerBoundPerBin
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 16
-class LevelSetKDEx_RBF(BaseWeightsBasedEstimator, BaseLSx):
-    """
-    `LevelSetKDEx` turns any point forecasting model into an estimator of the underlying conditional density.
-    The name 'LevelSet' stems from the fact that this approach interprets the values of the point forecasts
-    as a similarity measure between samples. The point forecasts of the training samples are sorted and 
-    recursively assigned to a bin until the size of the current bin reaches `binSize` many samples. Then
-    a new bin is created and so on. For a new test sample we check into which bin its point prediction
-    would have fallen and interpret the training samples of that bin as the empirical distribution function
-    of this test sample.    
-    """
-    
-    def __init__(self, 
-                 estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
-                 lengthScale: float=1, # Size of the bins created while running fit.
-                 ):
-        
-        super(BaseEstimator, self).__init__(estimator = estimator)
-
-        # Check if binSize is integer
-        if not isinstance(lengthScale, (int, np.int32, np.int64, float, np.float32, np.float64)):
-            raise ValueError("'lengthScale' must be an float!")
-
-        self.lengthScale = lengthScale
-        
-        self.yTrain = None
-        self.yPredTrain = None
-        self.fitted = False
-    
-    #---
-    
-    def fit(self: LevelSetKDEx_RBF, 
-            X: np.ndarray, # Feature matrix used by `estimator` to predict `y`.
-            y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
-            ):
-        """
-        Fit `LevelSetKDEx` model by grouping the point predictions of the samples specified via `X`
-        according to their value. Samples are recursively sorted into bins until each bin contains
-        `binSize` many samples. For details, checkout the function `generateBins` which does the
-        heavy lifting.
-        """
-        
-        if X.shape[0] != y.shape[0]:
-            raise ValueError("'X' and 'y' must contain the same number of samples!")
-        
-        #---
-        
-        try:
-            yPred = self.estimator.predict(X)
-            
-        except NotFittedError:
-            try:
-                self.estimator.fit(X = X, y = y)                
-            except:
-                raise ValueError("Couldn't fit 'estimator' with user specified 'X' and 'y'!")
-            else:
-                yPred = self.estimator.predict(X)
-        
-        #---
-        
-        # IMPORTANT: In case 'y' is given as a pandas.Series, we can potentially run into indexing 
-        # problems later on.
-        self.yTrain = y.ravel()
-        
-        self.yPredTrain = yPred
-        self.fitted = True
-        
-    #---
-    
-    def getWeights(self: LevelSetKDEx_DRF, 
-                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
-                   # Specifies structure of the returned density estimates. One of: 
-                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
-                   outputType: str='onlyPositiveWeights', 
-                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
-                   # density of each sample for scaling purposes.
-                   scalingList: list=None, 
-                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
-        
-        # __annotations__ = BaseWeightsBasedEstimator.getWeights.__annotations__
-        __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
-        
-        if not self.fitted:
-            raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
-                                 "appropriate arguments before trying to compute weights.")
-        
-        #---
-        
-        yPred = self.estimator.predict(X)
-        
-        weightsList = [np.exp(-(pred - self.yPredTrain)**2 / (2 * self.lengthScale**2)) for pred in yPred]
-        weightsList = [weights / sum(weights) for weights in weightsList]
-        
-        weightsDataList = [(weights[weights > 0], np.where(weights > 0)[0]) for weights in weightsList]
-        
-        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                     outputType = outputType, 
-                                                     y = self.yTrain,
-                                                     scalingList = scalingList,
-                                                     equalWeights = False)
-        
-        return weightsDataList
-    
-    
-
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 18
-class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
-    """
-     `LevelSetKDEx_kNN` turns any point predictor that has a .predict-method 
-    into an estimator of the condititional density of the underlying distribution.
-    The basic idea of each level-set based approach is to interprete the point forecast
-    generated by the underlying point predictor as a similarity measure of samples.
-    In the case of the `LevelSetKDEx_kNN` defined here, for every new samples
-    'binSize'-many training samples are computed whose point forecast is closest
-    to the point forecast of the new sample.
-    The resulting empirical distribution of these 'nearest' training samples are 
-    viewed as our estimation of the conditional distribution of each the new sample 
-    at hand.
-    
-    NOTE: In contrast to the standard `LevelSetKDEx`, it is possible to apply
-    `LevelSetKDEx_kNN` to arbitrary dimensional point predictors.
-    """
-    
-    def __init__(self, 
-                 estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
-                 binSize: int=100, # Size of the bins created while running fit.
-                 # Determines behaviour of method `getWeights`. If False, all weights receive the same  
-                 # value. If True, the distance of the point forecasts is taking into account.
-                 weightsByDistance: bool=False, 
-                 ):
-        
-        super(BaseEstimator, self).__init__(estimator = estimator)
-
-        # Check if binSize is integer
-        if not isinstance(binSize, (int, np.int32, np.int64)):
-            raise ValueError("'binSize' must be an integer!")
-
-        # Check if weightsByDistance is bool
-        if not isinstance(weightsByDistance, bool):
-            raise ValueError("'weightsByDistance' must be a boolean!")
-        
-        self.binSize = binSize
-        self.weightsByDistance = weightsByDistance
-        
-        self.yTrain = None
-        self.yPredTrain = None
-        self.nearestNeighborsOnPreds = None
-        self.fitted = False
-        
-    #---
-    
-    def fit(self: LevelSetKDEx, 
-            X: np.ndarray, # Feature matrix used by `estimator` to predict `y`.
-            y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
-            ):
-        """
-        Fit `LevelSetKDEx_kNN` model by applying the nearest neighbors algorithm to the point
-        predictions of the samples specified by `X` based on `estimator`. 
-        """
-        
-        # Checks
-        if not isinstance(self.binSize, (int, np.int32, np.int64)):
-            raise ValueError("'binSize' must be an integer!")
-            
-        if self.binSize > y.shape[0]:
-            raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
-            
-        if X.shape[0] != y.shape[0]:
-            raise ValueError("'X' and 'y' must contain the same number of samples!")
-            
-        # IMPORTANT: In case 'y' is given as a pandas.Series, we can potentially run into indexing 
-        # problems later on.
-        if isinstance(y, pd.Series):
-            y = y.ravel()
-        
-        #---
-        
-        try:
-            yPred = self.estimator.predict(X)
-        except NotFittedError:
-            # warnings.warn("The object 'estimator' must have been fitted already!"
-            #               "'estimator' will be fitted with 'X' and 'y' to enable point predicting!",
-            #               stacklevel = 2)
-            try:
-                self.estimator.fit(X = X, y = y)                
-            except:
-                raise ValueError("Couldn't fit 'estimator' with user specified 'X' and 'y'!")
-            else:
-                yPred = self.estimator.predict(X)
-
-        #---
-        
-        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
-        
-        nn = NearestNeighbors(algorithm = 'kd_tree')
-        nn.fit(X = yPred_reshaped)
-
-        #---
-
-        self.yTrain = y
-        self.yPredTrain = yPred
-        self.nearestNeighborsOnPreds = nn
-        self.fitted = True
-        
-    #---
-    
-    def getWeights(self, 
-                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
-                   # Specifies structure of the returned density estimates. One of: 
-                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
-                   outputType: str='onlyPositiveWeights', 
-                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
-                   # density of each sample for scaling purposes.
-                   scalingList: list=None, 
-                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
-        
-        __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
-        
-        if not self.fitted:
-            raise NotFittedError("This LevelSetKDEx_kNN instance is not fitted yet. Call 'fit' with "
-                                 "appropriate arguments before trying to compute weights.")
-            
-        #---
-
-        nn = self.nearestNeighborsOnPreds
-
-        #---
-
-        yPred = self.estimator.predict(X)   
-        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
-
-        distancesMatrix, neighborsMatrix = nn.kneighbors(X = yPred_reshaped, 
-                                                         n_neighbors = self.binSize + 1)
-
-        #---
-
-        neighborsList = list(neighborsMatrix[:, 0:self.binSize])
-        distanceCheck = np.where(distancesMatrix[:, self.binSize - 1] == distancesMatrix[:, self.binSize])
-        indicesToMod = distanceCheck[0]
-
-        for index in indicesToMod:
-            distanceExtremePoint = np.absolute(yPred[index] - self.yPredTrain[neighborsMatrix[index, self.binSize-1]])
-
-            neighborsByRadius = nn.radius_neighbors(X = yPred_reshaped[index:index + 1], 
-                                                    radius = distanceExtremePoint, return_distance = False)[0]
-            neighborsList[index] = neighborsByRadius
-
-        #---
-        
-        if self.weightsByDistance:
-            binSizesReal = [len(neighbors) for neighbors in neighborsList]
-            binSizeMax = max(binSizesReal)
-            
-            distancesMatrix, neighborsMatrix = nn.kneighbors(X = yPred_reshaped, 
-                                                             n_neighbors = binSizeMax)
-            
-            weightsDataList = list()
-            
-            for i in range(X.shape[0]):
-                distances = distancesMatrix[i, 0:binSizesReal[i]]
-                distancesCloseZero = np.isclose(distances, 0)
-                
-                if np.any(distancesCloseZero):
-                    indicesCloseZero = neighborsMatrix[i, np.where(distancesCloseZero)[0]]
-                    weightsDataList.append((np.repeat(1 / len(indicesCloseZero), len(indicesCloseZero)),
-                                            indicesCloseZero))
-                    
-                else:                                 
-                    inverseDistances = 1 / distances
-
-                    weightsDataList.append((inverseDistances / inverseDistances.sum(), 
-                                            np.array(neighborsList[i], dtype = 'uintc')))
-            
-            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                         outputType = outputType, 
-                                                         y = self.yTrain,
-                                                         scalingList = scalingList,
-                                                         equalWeights = False)
-            
-        else:
-            weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors, dtype = 'uintc')) 
-                               for neighbors in neighborsList]
-
-            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                         outputType = outputType, 
-                                                         y = self.yTrain,
-                                                         scalingList = scalingList,
-                                                         equalWeights = True)
-
-        return weightsDataList
-      
-
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 22
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 11
 class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
     """
-     `LevelSetKDEx_kNN` turns any point predictor that has a .predict-method 
-    into an estimator of the condititional density of the underlying distribution.
-    The basic idea of each level-set based approach is to interprete the point forecast
-    generated by the underlying point predictor as a similarity measure of samples.
-    In the case of the `LevelSetKDEx_kNN` defined here, for every new samples
-    'binSize'-many training samples are computed whose point forecast is closest
-    to the point forecast of the new sample.
-    The resulting empirical distribution of these 'nearest' training samples are 
-    viewed as our estimation of the conditional distribution of each the new sample 
-    at hand.
-    
-    NOTE: In contrast to the standard `LevelSetKDEx`, it is possible to apply
-    `LevelSetKDEx_kNN` to arbitrary dimensional point predictors.
+    TBD.
     """
     
     def __init__(self, 
@@ -775,8 +471,7 @@ class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
             y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
             ):
         """
-        Fit `LevelSetKDEx_kNN` model by applying the nearest neighbors algorithm to the point
-        predictions of the samples specified by `X` based on `estimator`. 
+        TBD. 
         """
         
         # Checks
@@ -866,11 +561,11 @@ class LevelSetKDEx_NN(BaseWeightsBasedEstimator, BaseLSx):
         return weightsDataList
       
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 24
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 13
 def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being grouped together.
                  yPred: np.ndarray, # 1-dimensional array of predicted values.
                  ):
-    "Used to generate the neighboorhoods used by `LevelSetKDEx` to compute density estimations."
+    "Used to generate the neighboorhoods used by `LevelSetKDEx_NN` to compute density estimations."
     
     duplicationDict = defaultdict(list)
     counterDict = defaultdict(int)
@@ -1080,14 +775,14 @@ def getNeighbors(binSize: int, # Size of the bins of values of `yPred` being gro
  
     return neighborsPerPred, np.array(neighborsRemoved), np.array(neighborsAdded)
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 26
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 15
 def getNeighborsTest(binSize: int, # Size of the bins of values of `yPred` being grouped together.
                      yPred: np.ndarray, # 1-dimensional array of predicted values.
                      yPredTrain: np.ndarray, # 1-dimensional array of predicted train values.
                      # Dict containing the neighbors of all train samples. Keys are the train predictions.
                      neighborsDictTrain: dict, 
                      ):
-    "Used to generate the neighboorhoods used by `LevelSetKDEx` to compute density estimations."
+    "Used to generate the neighboorhoods used by `LevelSetKDEx_NN` to compute density estimations."
     
     duplicationDict = defaultdict(list)
     counterDict = defaultdict(int)
@@ -1177,7 +872,7 @@ def getNeighborsTest(binSize: int, # Size of the bins of values of `yPred` being
  
     return neighborsPerPred
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 28
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 17
 # Setting 'efficientRAM = TRUE' is only necessary when there are roughly umore than 200k training observations.
 # This setting causes the run-time of the algorithm to linearly depend on the 'binSize', which can become quite
 # slow for bin-sizes above 10k.
@@ -1304,41 +999,47 @@ def getKernelValues(yPred,
         return weightsDataList
 
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 30
-class LevelSetKDEx_clustering(BaseWeightsBasedEstimator, BaseLSx):
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 19
+class LevelSetKDEx_kNN(BaseWeightsBasedEstimator, BaseLSx):
     """
-    `LevelSetKDEx` turns any point forecasting model into an estimator of the underlying conditional density.
-    The name 'LevelSet' stems from the fact that this approach interprets the values of the point forecasts
-    as a similarity measure between samples. The point forecasts of the training samples are sorted and 
-    recursively assigned to a bin until the size of the current bin reaches `binSize` many samples. Then
-    a new bin is created and so on. For a new test sample we check into which bin its point prediction
-    would have fallen and interpret the training samples of that bin as the empirical distribution function
-    of this test sample.    
+     `LevelSetKDEx_kNN` turns any point predictor that has a .predict-method 
+    into an estimator of the condititional density of the underlying distribution.
+    The basic idea of each level-set based approach is to interprete the point forecast
+    generated by the underlying point predictor as a similarity measure of samples.
+    In the case of the `LevelSetKDEx_kNN` defined here, for every new samples
+    'binSize'-many training samples are computed whose point forecast is closest
+    to the point forecast of the new sample.
+    The resulting empirical distribution of these 'nearest' training samples are 
+    viewed as our estimation of the conditional distribution of each the new sample 
+    at hand.
     """
     
     def __init__(self, 
                  estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
-                 nClusters: int=10, # Number of clusters to form as well as number of centroids to generate.
+                 binSize: int=100, # Size of the bins created while running fit.
+                 # Determines behaviour of method `getWeights`. If False, all weights receive the same  
+                 # value. If True, the distance of the point forecasts is taking into account.
+                 weightsByDistance: bool=False, 
                  ):
         
         super(BaseEstimator, self).__init__(estimator = estimator)
 
-        # nClusters must either be of type int, np.int64 or np.int32
-        if isinstance(nClusters, (np.int32, np.int64)):
-            nClusters = int(nClusters)
-        
-        elif not isinstance(nClusters, (int, np.int32, np.int64)):
-            raise ValueError("'nClusters' must be an integer!")
-                
-        self.nClusters = nClusters
+        # Check if binSize is integer
+        if not isinstance(binSize, (int, np.int32, np.int64)):
+            raise ValueError("'binSize' must be an integer!")
 
+        # Check if weightsByDistance is bool
+        if not isinstance(weightsByDistance, bool):
+            raise ValueError("'weightsByDistance' must be a boolean!")
+        
+        self.binSize = binSize
+        self.weightsByDistance = weightsByDistance
+        
         self.yTrain = None
         self.yPredTrain = None
-        self.kmeans = None
-        self.clusterDict = None
-        self.clusterSizes = None
+        self.nearestNeighborsOnPreds = None
         self.fitted = False
-    
+        
     #---
     
     def fit(self: LevelSetKDEx, 
@@ -1346,30 +1047,20 @@ class LevelSetKDEx_clustering(BaseWeightsBasedEstimator, BaseLSx):
             y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
             ):
         """
-        Fit `LevelSetKDEx` model by grouping the point predictions of the samples specified via `X`
-        according to their value. Samples are recursively sorted into bins until each bin contains
-        `binSize` many samples. For details, checkout the function `generateBins` which does the
-        heavy lifting.
+        Fit `LevelSetKDEx_kNN` model by applying the nearest neighbors algorithm to the point
+        predictions of the samples specified by `X` based on `estimator`. 
         """
         
         # Checks
-        if self.nClusters is None:
-            raise ValueError("'nClusters' must be specified to fit the LSx estimator!")
-        
-        # nClusters must either be of type int, np.int64 or np.int32
-        if isinstance(self.nClusters, (np.int32, np.int64)):
-            self.nClusters = int(self.nClusters)
-        
-        elif not isinstance(self.nClusters, (int, np.int32, np.int64)):
-            raise ValueError("'nClusters' must be an integer!")
-        
-        # Check if nClusters is positive
-        if self.nClusters <= 0:
-            raise ValueError("'nClusters' must be positive!")
-        
+        if not isinstance(self.binSize, (int, np.int32, np.int64)):
+            raise ValueError("'binSize' must be an integer!")
+            
+        if self.binSize > y.shape[0]:
+            raise ValueError("'binSize' mustn't be bigger than the size of 'y'!")
+            
         if X.shape[0] != y.shape[0]:
             raise ValueError("'X' and 'y' must contain the same number of samples!")
-        
+            
         # IMPORTANT: In case 'y' is given as a pandas.Series, we can potentially run into indexing 
         # problems later on.
         if isinstance(y, pd.Series):
@@ -1379,43 +1070,29 @@ class LevelSetKDEx_clustering(BaseWeightsBasedEstimator, BaseLSx):
         
         try:
             yPred = self.estimator.predict(X)
-            
         except NotFittedError:
+            # warnings.warn("The object 'estimator' must have been fitted already!"
+            #               "'estimator' will be fitted with 'X' and 'y' to enable point predicting!",
+            #               stacklevel = 2)
             try:
                 self.estimator.fit(X = X, y = y)                
             except:
                 raise ValueError("Couldn't fit 'estimator' with user specified 'X' and 'y'!")
             else:
                 yPred = self.estimator.predict(X)
-        
+
         #---
         
-        # Reshape yPred to 2D array with shape (nSamples, 1) and convert to float32.
-        yPredMod = yPred.reshape(-1, 1).astype(np.float32)
+        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
         
-        kmeans = faiss.Kmeans(d = 1, k = self.nClusters)
-        kmeans.train(yPredMod)
-        # self.centers = kmeans.centroids
-        
-        clusterAssignments = kmeans.assign(yPredMod)[1]
-        
-        # Get the cluster labels for each sample in yPred as a dict with keys being the cluster labels
-        # and values being the indices of the samples in yPred that belong to that cluster.
-        # Create another dict with keys being the cluster labels and values being the size of each cluster.
-        clusterDict = defaultdict(list)
-        clusterSizes = defaultdict(int)
+        nn = NearestNeighbors(algorithm = 'kd_tree')
+        nn.fit(X = yPred_reshaped)
 
-        for index, cluster in enumerate(clusterAssignments):
-            clusterDict[cluster].append(index)
-            clusterSizes[cluster] += 1
-        
-        clusterSizes = pd.Series(clusterSizes)
-       
+        #---
+
         self.yTrain = y
         self.yPredTrain = yPred
-        self.kmeans = kmeans
-        self.clusterDict = clusterDict
-        self.clusterSizes = clusterSizes
+        self.nearestNeighborsOnPreds = nn
         self.fitted = True
         
     #---
@@ -1430,46 +1107,86 @@ class LevelSetKDEx_clustering(BaseWeightsBasedEstimator, BaseLSx):
                    scalingList: list=None, 
                    ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
         
-        # __annotations__ = BaseWeightsBasedEstimator.getWeights.__annotations__
         __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
         
         if not self.fitted:
-            raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
+            raise NotFittedError("This LevelSetKDEx_kNN instance is not fitted yet. Call 'fit' with "
                                  "appropriate arguments before trying to compute weights.")
-        
+            
+        #---
+
+        nn = self.nearestNeighborsOnPreds
+
+        #---
+
+        yPred = self.estimator.predict(X)   
+        yPred_reshaped = np.reshape(yPred, newshape = (len(yPred), 1))
+
+        distancesMatrix, neighborsMatrix = nn.kneighbors(X = yPred_reshaped, 
+                                                         n_neighbors = self.binSize + 1)
+
+        #---
+
+        neighborsList = list(neighborsMatrix[:, 0:self.binSize])
+        distanceCheck = np.where(distancesMatrix[:, self.binSize - 1] == distancesMatrix[:, self.binSize])
+        indicesToMod = distanceCheck[0]
+
+        for index in indicesToMod:
+            distanceExtremePoint = np.absolute(yPred[index] - self.yPredTrain[neighborsMatrix[index, self.binSize-1]])
+
+            neighborsByRadius = nn.radius_neighbors(X = yPred_reshaped[index:index + 1], 
+                                                    radius = distanceExtremePoint, return_distance = False)[0]
+            neighborsList[index] = neighborsByRadius
+
         #---
         
-        yPred = self.estimator.predict(X)
-        # Reshape yPred to 2D array with shape (nSamples, 1) and convert to float32.
-        yPred = yPred.reshape(-1, 1).astype(np.float32)
+        if self.weightsByDistance:
+            binSizesReal = [len(neighbors) for neighbors in neighborsList]
+            binSizeMax = max(binSizesReal)
+            
+            distancesMatrix, neighborsMatrix = nn.kneighbors(X = yPred_reshaped, 
+                                                             n_neighbors = binSizeMax)
+            
+            weightsDataList = list()
+            
+            for i in range(X.shape[0]):
+                distances = distancesMatrix[i, 0:binSizesReal[i]]
+                distancesCloseZero = np.isclose(distances, 0)
+                
+                if np.any(distancesCloseZero):
+                    indicesCloseZero = neighborsMatrix[i, np.where(distancesCloseZero)[0]]
+                    weightsDataList.append((np.repeat(1 / len(indicesCloseZero), len(indicesCloseZero)),
+                                            indicesCloseZero))
+                    
+                else:                                 
+                    inverseDistances = 1 / distances
 
-        # Get cluster labels of yPred
-        clusterLabels = self.kmeans.assign(yPred)[1]
-        
-        #---
-        
-        weightsDataList = [(np.repeat(1 / self.clusterSizes[cluster], self.clusterSizes[cluster]), np.array(self.clusterDict[cluster], dtype = 'uintc')) 
-                            for cluster in clusterLabels]
+                    weightsDataList.append((inverseDistances / inverseDistances.sum(), 
+                                            np.array(neighborsList[i], dtype = 'uintc')))
+            
+            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                         outputType = outputType, 
+                                                         y = self.yTrain,
+                                                         scalingList = scalingList,
+                                                         equalWeights = False)
+            
+        else:
+            weightsDataList = [(np.repeat(1 / len(neighbors), len(neighbors)), np.array(neighbors, dtype = 'uintc')) 
+                               for neighbors in neighborsList]
 
-        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
-                                                     outputType = outputType, 
-                                                     y = self.yTrain,
-                                                     scalingList = scalingList,
-                                                     equalWeights = True)
-        
+            weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                         outputType = outputType, 
+                                                         y = self.yTrain,
+                                                         scalingList = scalingList,
+                                                         equalWeights = True)
+
         return weightsDataList
-    
+      
 
-# %% ../nbs/01_levelSetKDEx_univariate.ipynb 31
-class LevelSetKDEx_clustering2(BaseWeightsBasedEstimator, BaseLSx):
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 21
+class LevelSetKDEx_kMeans(BaseWeightsBasedEstimator, BaseLSx):
     """
-    `LevelSetKDEx` turns any point forecasting model into an estimator of the underlying conditional density.
-    The name 'LevelSet' stems from the fact that this approach interprets the values of the point forecasts
-    as a similarity measure between samples. The point forecasts of the training samples are sorted and 
-    recursively assigned to a bin until the size of the current bin reaches `binSize` many samples. Then
-    a new bin is created and so on. For a new test sample we check into which bin its point prediction
-    would have fallen and interpret the training samples of that bin as the empirical distribution function
-    of this test sample.    
+    TBD.   
     """
     
     def __init__(self, 
@@ -1497,15 +1214,12 @@ class LevelSetKDEx_clustering2(BaseWeightsBasedEstimator, BaseLSx):
     
     #---
     
-    def fit(self: LevelSetKDEx, 
+    def fit(self, 
             X: np.ndarray, # Feature matrix used by `estimator` to predict `y`.
             y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
             ):
         """
-        Fit `LevelSetKDEx` model by grouping the point predictions of the samples specified via `X`
-        according to their value. Samples are recursively sorted into bins until each bin contains
-        `binSize` many samples. For details, checkout the function `generateBins` which does the
-        heavy lifting.
+        TBD.
         """
         
         # Checks
@@ -1604,4 +1318,100 @@ class LevelSetKDEx_clustering2(BaseWeightsBasedEstimator, BaseLSx):
                                                      equalWeights = True)
         
         return weightsDataList
+    
+
+# %% ../nbs/01_levelSetKDEx_univariate.ipynb 23
+class LevelSetKDEx_RBF(BaseWeightsBasedEstimator, BaseLSx):
+    """
+    TBD. 
+    """
+    
+    def __init__(self, 
+                 estimator, # Model with a .fit and .predict-method (implementing the scikit-learn estimator interface).
+                 lengthScale: float=1, # Size of the bins created while running fit.
+                 ):
+        
+        super(BaseEstimator, self).__init__(estimator = estimator)
+
+        # Check if binSize is integer
+        if not isinstance(lengthScale, (int, np.int32, np.int64, float, np.float32, np.float64)):
+            raise ValueError("'lengthScale' must be an float!")
+
+        self.lengthScale = lengthScale
+        
+        self.yTrain = None
+        self.yPredTrain = None
+        self.fitted = False
+    
+    #---
+    
+    def fit(self: LevelSetKDEx_RBF, 
+            X: np.ndarray, # Feature matrix used by `estimator` to predict `y`.
+            y: np.ndarray, # 1-dimensional target variable corresponding to the feature matrix `X`.
+            ):
+        """
+        TBD.
+        """
+        
+        if X.shape[0] != y.shape[0]:
+            raise ValueError("'X' and 'y' must contain the same number of samples!")
+        
+        #---
+        
+        try:
+            yPred = self.estimator.predict(X)
+            
+        except NotFittedError:
+            try:
+                self.estimator.fit(X = X, y = y)                
+            except:
+                raise ValueError("Couldn't fit 'estimator' with user specified 'X' and 'y'!")
+            else:
+                yPred = self.estimator.predict(X)
+        
+        #---
+        
+        # IMPORTANT: In case 'y' is given as a pandas.Series, we can potentially run into indexing 
+        # problems later on.
+        self.yTrain = y.ravel()
+        
+        self.yPredTrain = yPred
+        self.fitted = True
+        
+    #---
+    
+    def getWeights(self: LevelSetKDEx_DRF, 
+                   X: np.ndarray, # Feature matrix for which conditional density estimates are computed.
+                   # Specifies structure of the returned density estimates. One of: 
+                   # 'all', 'onlyPositiveWeights', 'summarized', 'cumDistribution', 'cumDistributionSummarized'
+                   outputType: str='onlyPositiveWeights', 
+                   # Optional. List with length X.shape[0]. Values are multiplied to the estimated 
+                   # density of each sample for scaling purposes.
+                   scalingList: list=None, 
+                   ) -> list: # List whose elements are the conditional density estimates for the samples specified by `X`.
+        
+        # __annotations__ = BaseWeightsBasedEstimator.getWeights.__annotations__
+        __doc__ = BaseWeightsBasedEstimator.getWeights.__doc__
+        
+        if not self.fitted:
+            raise NotFittedError("This LevelSetKDEx instance is not fitted yet. Call 'fit' with "
+                                 "appropriate arguments before trying to compute weights.")
+        
+        #---
+        
+        yPred = self.estimator.predict(X)
+        
+        weightsList = [np.exp(-(pred - self.yPredTrain)**2 / (2 * self.lengthScale**2)) for pred in yPred]
+        weightsList = [weights / sum(weights) for weights in weightsList]
+        
+        weightsDataList = [(weights[weights > 0], np.where(weights > 0)[0]) for weights in weightsList]
+        
+        weightsDataList = restructureWeightsDataList(weightsDataList = weightsDataList, 
+                                                     outputType = outputType, 
+                                                     y = self.yTrain,
+                                                     scalingList = scalingList,
+                                                     equalWeights = False)
+        
+        return weightsDataList
+    
     

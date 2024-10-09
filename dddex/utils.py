@@ -247,8 +247,8 @@ def summarizeWeightsData_multivariate(weightsPos, yWeightPos, equalWeights = Fal
 
         #---
 
-        # indicesSort = np.argsort(yUnique)
-        # weightsSummarizedSorted, yUniqueSorted = weightsSummarized[indicesSort], yUnique[indicesSort]
+        indicesSort = np.argsort(yUnique)
+        weightsSummarizedSorted, yUniqueSorted = weightsSummarized[indicesSort], yUnique[indicesSort]
     
     return weightsSummarizedSorted, yUniqueSorted
 
