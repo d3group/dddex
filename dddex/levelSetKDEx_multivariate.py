@@ -587,7 +587,7 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
         
         # IMPORTANT: In case 'y' is given as a pandas.Series, we can potentially run into indexing 
         # problems later on.
-        self.yTrain = y.ravel()
+        self.yTrain = np.array(y)
         
         self.yPredTrain = yPred
         self.tree = tree
@@ -627,7 +627,7 @@ class LevelSetKDEx_DT(BaseWeightsBasedEstimator_multivariate, BaseLSx):
                                                                   outputType = outputType, 
                                                                   y = self.yTrain,
                                                                   scalingList = scalingList,
-                                                                  equalWeights = True)
+                                                                  equalWeights = False)
         
         return weightsDataList
     
